@@ -26,7 +26,7 @@ export default async function ArtFeedPage({ params }: Params) {
           아직 등록된 아트가 없어요.
         </p>
       ) : (
-        <div className="columns-2 gap-3">
+        <div className="grid grid-cols-2 items-start gap-3">
           {arts.map((art) => (
             <ArtTile
               key={art.id}

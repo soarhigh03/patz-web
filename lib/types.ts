@@ -52,13 +52,10 @@ export interface Art {
   price: number;
   durationMinutes: number;
   imageUrl?: string;
-  /**
-   * Aspect ratio (width / height) used to render placeholder boxes in the
-   * masonry feed before the real image loads. Set when seeding mock data;
-   * once images come from Supabase Storage we can derive this from the file
-   * dimensions or default to 1.
-   */
-  aspectRatio?: number;
+  /** Natural pixel dimensions of imageUrl, when available. Used to size the
+   * feed/detail images at their true aspect ratio without CLS. */
+  imageWidth?: number;
+  imageHeight?: number;
 }
 
 export interface Staff {
@@ -69,4 +66,27 @@ export interface Staff {
   availableWeekdays: Weekday[];
   availableStart: string;
   availableEnd: string;
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Per-shop mockup.ts seed types                                             */
+/* -------------------------------------------------------------------------- */
+
+/** Seed data shape for a shop's `public/mockups/<handle>/mockup.ts` file.
+ *  Image URLs are not part of the seed — they're resolved from the filesystem
+ *  by `lib/mockAssets.ts` based on the shop handle. */
+export type ShopSeed = Omit<Shop, "profileImageUrl" | "backgroundImageUrl">;
+
+/** Seed entry for a single art in `arts: ArtSeed[]`. `shopHandle` and image
+ *  fields are filled in by the registry — keep these files focused on the
+ *  shop-specific copy/pricing/duration. */
+export type ArtSeed = Omit<
+  Art,
+  "shopHandle" | "imageUrl" | "imageWidth" | "imageHeight"
+>;
+
+/** What each `public/mockups/<handle>/mockup.ts` must export. */
+export interface ShopMockup {
+  shop: ShopSeed;
+  arts: ArtSeed[];
 }
