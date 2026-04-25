@@ -56,6 +56,11 @@ const mockup: ShopMockup = {
     { id: "hc_1", service: "hand_foot_care", name: "손 케어", price: 35000, durationMinutes: 45 },
     { id: "hc_2", service: "hand_foot_care", name: "발 케어", price: 40000, durationMinutes: 60 },
   ],
+  staff: [
+    { id: "staff_orrn", name: "오른쌤" },
+    { id: "staff_yuri", name: "유리쌤" },
+  ],
+  availableTimes: ["11:00", "12:30", "13:00", "15:00", "16:30", "18:00", "19:30"],
 };
 
 export default mockup;

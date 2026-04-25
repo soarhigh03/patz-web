@@ -85,8 +85,20 @@ export type ArtSeed = Omit<
   "shopHandle" | "imageUrl" | "imageWidth" | "imageHeight"
 >;
 
+/** Seed entry for a single 쌤 (staff). Schedule fields can be added later;
+ *  for the form picker we only need id + display name. */
+export interface StaffSeed {
+  id: string;
+  name: string;
+}
+
 /** What each `public/mockups/<handle>/mockup.ts` must export. */
 export interface ShopMockup {
   shop: ShopSeed;
   arts: ArtSeed[];
+  staff: StaffSeed[];
+  /** Mock available time slots shown in the reservation form. Step 4/6 will
+   *  replace with real per-date availability computed from shop hours, art
+   *  duration, and existing bookings. */
+  availableTimes: string[];
 }

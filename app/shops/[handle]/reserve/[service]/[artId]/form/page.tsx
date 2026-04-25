@@ -1,24 +1,33 @@
-import Link from "next/link";
+import { notFound } from "next/navigation";
+import {
+  getMockArt,
+  getMockAvailableTimes,
+  getMockShopByHandle,
+  getMockStaff,
+} from "@/lib/mockData";
+import { isServiceType } from "@/lib/services";
+import { ReservationForm } from "@/components/ReservationForm";
 
 interface Params {
   params: Promise<{ handle: string; service: string; artId: string }>;
 }
 
-// Step 3 will replace this with the full reservation form (Image #5).
-export default async function ReservationFormPlaceholder({ params }: Params) {
+export default async function ReservationFormPage({ params }: Params) {
   const { handle, service, artId } = await params;
+  if (!isServiceType(service)) notFound();
+
+  const shop = getMockShopByHandle(handle);
+  const art = getMockArt(handle, artId);
+  if (!shop || !art || art.service !== service) notFound();
+
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-center gap-3 px-6 text-center">
-      <p className="text-sm text-muted">예약 양식은 Step 3에서 구현됩니다.</p>
-      <p className="text-xs text-muted">
-        shop: {handle} · service: {service} · art: {artId}
-      </p>
-      <Link
-        href={`/shops/${handle}/reserve/${service}/${artId}`}
-        className="text-sm font-medium underline"
-      >
-        ← 아트 상세로 돌아가기
-      </Link>
+    <main className="min-h-dvh">
+      <ReservationForm
+        shop={shop}
+        art={art}
+        staff={getMockStaff(handle)}
+        availableTimes={getMockAvailableTimes(handle)}
+      />
     </main>
   );
 }

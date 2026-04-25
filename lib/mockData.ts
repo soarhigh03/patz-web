@@ -1,5 +1,5 @@
 import "server-only";
-import type { Art, Shop, ServiceType, ShopMockup } from "./types";
+import type { Art, Shop, ServiceType, ShopMockup, StaffSeed } from "./types";
 import { resolveMockAsset } from "./mockAssets";
 
 import orrnnail from "@/public/mockups/orrnnail/mockup";
@@ -22,6 +22,8 @@ const MOCKUPS: ShopMockup[] = [orrnnail];
 interface HydratedShop {
   shop: Shop;
   arts: Art[];
+  staff: StaffSeed[];
+  availableTimes: string[];
 }
 
 function hydrate(mockup: ShopMockup): HydratedShop {
@@ -47,7 +49,7 @@ function hydrate(mockup: ShopMockup): HydratedShop {
     };
   });
 
-  return { shop, arts };
+  return { shop, arts, staff: mockup.staff, availableTimes: mockup.availableTimes };
 }
 
 const HYDRATED: HydratedShop[] = MOCKUPS.map(hydrate);
@@ -73,4 +75,12 @@ export function getMockArt(handle: string, artId: string): Art | undefined {
   return HYDRATED.find((h) => h.shop.handle === handle)?.arts.find(
     (a) => a.id === artId,
   );
+}
+
+export function getMockStaff(handle: string): StaffSeed[] {
+  return HYDRATED.find((h) => h.shop.handle === handle)?.staff ?? [];
+}
+
+export function getMockAvailableTimes(handle: string): string[] {
+  return HYDRATED.find((h) => h.shop.handle === handle)?.availableTimes ?? [];
 }
