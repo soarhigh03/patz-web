@@ -39,11 +39,17 @@ const SHOPS: ShopSeed[] = [
 // Aspect ratios produce a varied masonry feed even with placeholder gray boxes.
 // Once real images arrive, we'll switch to natural dimensions.
 const ARTS: ArtSeed[] = [
-  { id: "1", shopHandle: "orrnnail", service: "nail_art", name: "이달의 아트 1", price: 60000, durationMinutes: 60, aspectRatio: 3 / 4 },
-  { id: "2", shopHandle: "orrnnail", service: "nail_art", name: "이달의 아트 2", price: 60000, durationMinutes: 60, aspectRatio: 1 },
-  { id: "3", shopHandle: "orrnnail", service: "nail_art", name: "이달의 아트 3", price: 65000, durationMinutes: 60, aspectRatio: 1 },
-  { id: "4", shopHandle: "orrnnail", service: "nail_art", name: "이달의 아트 4", price: 65000, durationMinutes: 60, aspectRatio: 3 / 4 },
-  { id: "5", shopHandle: "orrnnail", service: "nail_art", name: "이달의 아트 5", price: 65000, durationMinutes: 60, aspectRatio: 3 / 4 },
+  { id: "1",  shopHandle: "orrnnail", service: "nail_art", name: "이달의 아트 1",  price: 60000, durationMinutes: 60, aspectRatio: 3 / 4 },
+  { id: "2",  shopHandle: "orrnnail", service: "nail_art", name: "이달의 아트 2",  price: 60000, durationMinutes: 60, aspectRatio: 1 },
+  { id: "3",  shopHandle: "orrnnail", service: "nail_art", name: "이달의 아트 3",  price: 65000, durationMinutes: 60, aspectRatio: 1 },
+  { id: "4",  shopHandle: "orrnnail", service: "nail_art", name: "이달의 아트 4",  price: 65000, durationMinutes: 60, aspectRatio: 3 / 4 },
+  { id: "5",  shopHandle: "orrnnail", service: "nail_art", name: "이달의 아트 5",  price: 65000, durationMinutes: 60, aspectRatio: 3 / 4 },
+  { id: "6",  shopHandle: "orrnnail", service: "nail_art", name: "이달의 아트 6",  price: 65000, durationMinutes: 60, aspectRatio: 1 },
+  { id: "7",  shopHandle: "orrnnail", service: "nail_art", name: "이달의 아트 7",  price: 70000, durationMinutes: 75, aspectRatio: 3 / 4 },
+  { id: "8",  shopHandle: "orrnnail", service: "nail_art", name: "이달의 아트 8",  price: 70000, durationMinutes: 75, aspectRatio: 1 },
+  { id: "9",  shopHandle: "orrnnail", service: "nail_art", name: "이달의 아트 9",  price: 70000, durationMinutes: 75, aspectRatio: 3 / 4 },
+  { id: "10", shopHandle: "orrnnail", service: "nail_art", name: "이달의 아트 10", price: 70000, durationMinutes: 75, aspectRatio: 1 },
+  { id: "11", shopHandle: "orrnnail", service: "nail_art", name: "이달의 아트 11", price: 75000, durationMinutes: 90, aspectRatio: 3 / 4 },
 
   { id: "oc_1", shopHandle: "orrnnail", service: "one_color", name: "원컬러 - 누드", price: 45000, durationMinutes: 60, aspectRatio: 1 },
   { id: "oc_2", shopHandle: "orrnnail", service: "one_color", name: "원컬러 - 자주", price: 45000, durationMinutes: 60, aspectRatio: 3 / 4 },
