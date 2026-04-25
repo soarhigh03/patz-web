@@ -34,12 +34,34 @@ export function ReservationForm({ shop, art, staff, availableTimes }: Reservatio
   const [staffId, setStaffId] = useState<StaffSelection | null>(null);
   const [date, setDate] = useState<Date | null>(null);
   const [time, setTime] = useState<string | null>(null);
+  const [gelOtherRemoval, setGelOtherRemoval] = useState(false);
+  const [gelSelfRemoval, setGelSelfRemoval] = useState(false);
+  const [gelNoRemoval, setGelNoRemoval] = useState(false);
+  const [extensionCount, setExtensionCount] = useState(0);
   const [notes, setNotes] = useState("");
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
 
+  // "제거 없음" is mutually exclusive with the other two; 타샵 + 자샵 can both
+  // be checked when the customer has gel from a mix of shops.
+  function toggleNoRemoval(next: boolean) {
+    setGelNoRemoval(next);
+    if (next) {
+      setGelOtherRemoval(false);
+      setGelSelfRemoval(false);
+    }
+  }
+  function toggleOtherRemoval(next: boolean) {
+    setGelOtherRemoval(next);
+    if (next) setGelNoRemoval(false);
+  }
+  function toggleSelfRemoval(next: boolean) {
+    setGelSelfRemoval(next);
+    if (next) setGelNoRemoval(false);
+  }
+
   const depositLabel = shop.depositAmount
-    ? `예약금 ${formatPriceKRW(shop.depositAmount)} 입금`
-    : "예약금 입금";
+    ? `예약금 ${formatPriceKRW(shop.depositAmount)}을 아래 계좌로 입금해주세요.`
+    : "아래 계좌로 예약금을 입금해주세요.";
 
   // Revoke any object URL we created when it changes or the component unmounts
   // — otherwise the browser holds the file in memory until tab close.
@@ -49,14 +71,18 @@ export function ReservationForm({ shop, art, staff, availableTimes }: Reservatio
     };
   }, [photoUrl]);
 
-  const isValid =
-    name.trim() !== "" &&
-    phone1.length >= 2 &&
-    phone2.length >= 3 &&
-    phone3.length >= 4 &&
-    staffId !== null &&
-    date !== null &&
-    time !== null;
+  // Compute missing fields once — used for both isValid and the hint shown
+  // below the submit button so the customer can see why it's disabled.
+  const missing: string[] = [];
+  if (!name.trim()) missing.push("이름");
+  if (phone1.length < 3 || phone2.length < 3 || phone3.length < 4)
+    missing.push("전화번호");
+  if (staffId === null) missing.push("쌤");
+  if (date === null) missing.push("예약 날짜");
+  if (time === null) missing.push("예약 시간");
+  if (!gelOtherRemoval && !gelSelfRemoval && !gelNoRemoval)
+    missing.push("제거 여부");
+  const isValid = missing.length === 0;
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -152,11 +178,65 @@ export function ReservationForm({ shop, art, staff, availableTimes }: Reservatio
             )}
           </Field>
 
+          <Field label="제거 여부" required>
+            <div className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-3">
+              <label className="flex cursor-pointer items-center gap-2.5">
+                <input
+                  type="checkbox"
+                  checked={gelOtherRemoval}
+                  onChange={(e) => toggleOtherRemoval(e.target.checked)}
+                  className="h-5 w-5 rounded border-line accent-ink"
+                />
+                <span className="text-sm font-medium">타샵 제거</span>
+              </label>
+              <label className="flex cursor-pointer items-center gap-2.5">
+                <input
+                  type="checkbox"
+                  checked={gelSelfRemoval}
+                  onChange={(e) => toggleSelfRemoval(e.target.checked)}
+                  className="h-5 w-5 rounded border-line accent-ink"
+                />
+                <span className="text-sm font-medium">자샵 제거</span>
+              </label>
+              <label className="flex cursor-pointer items-center gap-2.5">
+                <input
+                  type="checkbox"
+                  checked={gelNoRemoval}
+                  onChange={(e) => toggleNoRemoval(e.target.checked)}
+                  className="h-5 w-5 rounded border-line accent-ink"
+                />
+                <span className="text-sm font-medium">제거 없음</span>
+              </label>
+            </div>
+          </Field>
+
+          <Field label="연장 (개수)">
+            <div className="mt-2 flex items-center gap-2">
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={10}
+                value={extensionCount === 0 ? "" : extensionCount}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw === "") return setExtensionCount(0);
+                  const v = Number(raw);
+                  if (Number.isNaN(v)) return;
+                  setExtensionCount(Math.min(10, Math.max(0, Math.floor(v))));
+                }}
+                placeholder="0"
+                className="h-12 w-20 rounded-xl bg-neutral-100 px-3 text-center text-base outline-none transition focus:bg-neutral-200"
+              />
+              <span className="text-sm text-muted">개 (최대 10개)</span>
+            </div>
+          </Field>
+
           <Field label="총 금액" required>
             <p className="mt-2 text-base">{formatPriceKRW(art.price)}</p>
           </Field>
 
-          <Field label={depositLabel} required>
+          <Field label={depositLabel}>
             {shop.account ? (
               <>
                 <div className="mt-2 flex items-center gap-3 text-base">
@@ -166,6 +246,9 @@ export function ReservationForm({ shop, art, staff, availableTimes }: Reservatio
                   <CopyButton value={shop.account.number} label="계좌번호" />
                 </div>
                 <p className="mt-2 text-xs text-muted">
+                  *예약금 입금이 확인되기 전까지 예약은 확정되지 않습니다.
+                </p>
+                <p className="mt-1 text-xs text-muted">
                   *노쇼 시 예약금은 환불되지 않습니다.
                 </p>
               </>
@@ -188,6 +271,12 @@ export function ReservationForm({ shop, art, staff, availableTimes }: Reservatio
           <PhotoUpload photoUrl={photoUrl} onChange={handleFile} />
         </div>
       </div>
+
+      {!isValid && (
+        <p className="px-6 pt-2 text-center text-xs text-muted">
+          입력 필요: {missing.join(", ")}
+        </p>
+      )}
 
       <StickyCTA sticky={false} disabled={!isValid}>
         예약하기
