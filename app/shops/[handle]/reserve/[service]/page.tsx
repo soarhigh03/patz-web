@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
-import { getMockShopByHandle, listMockArts } from "@/lib/mockData";
-import { isServiceType } from "@/lib/services";
+import { getShopByHandle, listArts } from "@/lib/data";
 import { ArtTile } from "@/components/ArtTile";
 
 interface Params {
@@ -10,12 +9,14 @@ interface Params {
 /** Image #3 — masonry feed of arts for the chosen service. */
 export default async function ArtFeedPage({ params }: Params) {
   const { handle, service } = await params;
-  if (!isServiceType(service)) notFound();
 
-  const shop = getMockShopByHandle(handle);
-  if (!shop || !shop.services.includes(service)) notFound();
+  const shop = await getShopByHandle(handle);
+  if (!shop) notFound();
 
-  const arts = listMockArts(handle, service);
+  // Service code must be one of the shop's enabled categories
+  if (!shop.serviceCategories.some((c) => c.code === service)) notFound();
+
+  const arts = await listArts(handle, service);
 
   return (
     <main className="min-h-dvh px-4 pt-20 pb-10">

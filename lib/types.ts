@@ -3,11 +3,18 @@
 
 export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6; // 0 = Sun
 
-export type ServiceType =
-  | "nail_art"
-  | "one_color"
-  | "pedicure"
-  | "hand_foot_care";
+/**
+ * Service category code (URL slug). The four built-in defaults are seeded on
+ * shop creation; shops can add custom codes (왁싱, 아이래시, ...). Stored as
+ * `string` rather than a closed union so custom shop categories type-check.
+ */
+export type ServiceCode = string;
+
+/** A shop's service category (seeded default OR shop-defined custom). */
+export interface ServiceCategory {
+  code: ServiceCode;        // URL slug, e.g. "nail-art"
+  name: string;             // display name, e.g. "네일아트 (손)"
+}
 
 export interface BusinessHours {
   /** "HH:mm" 24h, Asia/Seoul-local. */
@@ -40,13 +47,14 @@ export interface Shop {
   mapBadge?: string;
   account?: { bank: string; number: string };
   depositAmount?: number;
-  services: ServiceType[];
+  /** Service categories enabled for this shop (default 4 + any custom). */
+  serviceCategories: ServiceCategory[];
 }
 
 export interface Art {
   id: string;
   shopHandle: string;
-  service: ServiceType;
+  service: ServiceCode;
   name: string;
   /** KRW. */
   price: number;

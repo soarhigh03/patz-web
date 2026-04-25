@@ -1,14 +1,13 @@
 import type { ShopMockup } from "@/lib/types";
+import { DEFAULT_SERVICE_CATEGORIES } from "@/lib/services";
 
 /**
- * Mockup data for the "orrnnail" shop.
+ * Mockup data for the "orrnnail" shop. Used as a fallback when Supabase
+ * has no rows yet (e.g., before 0002_seed_orrnnail.sql is applied).
  *
  * To add a new art: drop the image at `./arts/<id>.{jpeg,jpg,png,webp,gif}`
- * and add a matching entry to the `arts` array below — the resolver picks it
- * up automatically.
- *
- * To add a new shop: copy this folder to `public/mockups/<newHandle>/`,
- * change the seed values, then register it in `lib/mockData.ts`.
+ * and add a matching entry to the `arts` array below — the resolver picks
+ * it up automatically.
  */
 const mockup: ShopMockup = {
   shop: {
@@ -31,30 +30,30 @@ const mockup: ShopMockup = {
     mapBadge: "홍대입구역에서 3분 거리에요!",
     account: { bank: "국민은행", number: "000-0000000-00-00000" },
     depositAmount: 20000,
-    services: ["nail_art", "one_color", "pedicure", "hand_foot_care"],
+    serviceCategories: DEFAULT_SERVICE_CATEGORIES,
   },
   arts: [
-    { id: "1",  service: "nail_art", name: "이달의 아트 1",  price: 60000, durationMinutes: 60 },
-    { id: "2",  service: "nail_art", name: "이달의 아트 2",  price: 60000, durationMinutes: 60 },
-    { id: "3",  service: "nail_art", name: "이달의 아트 3",  price: 65000, durationMinutes: 60 },
-    { id: "4",  service: "nail_art", name: "이달의 아트 4",  price: 65000, durationMinutes: 60 },
-    { id: "5",  service: "nail_art", name: "이달의 아트 5",  price: 65000, durationMinutes: 60 },
-    { id: "6",  service: "nail_art", name: "이달의 아트 6",  price: 65000, durationMinutes: 60 },
-    { id: "7",  service: "nail_art", name: "이달의 아트 7",  price: 70000, durationMinutes: 75 },
-    { id: "8",  service: "nail_art", name: "이달의 아트 8",  price: 70000, durationMinutes: 75 },
-    { id: "9",  service: "nail_art", name: "이달의 아트 9",  price: 70000, durationMinutes: 75 },
-    { id: "10", service: "nail_art", name: "이달의 아트 10", price: 70000, durationMinutes: 75 },
-    { id: "11", service: "nail_art", name: "이달의 아트 11", price: 75000, durationMinutes: 90 },
+    { id: "1",  service: "nail-art", name: "이달의 아트 1",  price: 60000, durationMinutes: 60 },
+    { id: "2",  service: "nail-art", name: "이달의 아트 2",  price: 60000, durationMinutes: 60 },
+    { id: "3",  service: "nail-art", name: "이달의 아트 3",  price: 65000, durationMinutes: 60 },
+    { id: "4",  service: "nail-art", name: "이달의 아트 4",  price: 65000, durationMinutes: 60 },
+    { id: "5",  service: "nail-art", name: "이달의 아트 5",  price: 65000, durationMinutes: 60 },
+    { id: "6",  service: "nail-art", name: "이달의 아트 6",  price: 65000, durationMinutes: 60 },
+    { id: "7",  service: "nail-art", name: "이달의 아트 7",  price: 70000, durationMinutes: 75 },
+    { id: "8",  service: "nail-art", name: "이달의 아트 8",  price: 70000, durationMinutes: 75 },
+    { id: "9",  service: "nail-art", name: "이달의 아트 9",  price: 70000, durationMinutes: 75 },
+    { id: "10", service: "nail-art", name: "이달의 아트 10", price: 70000, durationMinutes: 75 },
+    { id: "11", service: "nail-art", name: "이달의 아트 11", price: 75000, durationMinutes: 90 },
 
-    { id: "oc_1", service: "one_color", name: "원컬러 - 누드",   price: 45000, durationMinutes: 60 },
-    { id: "oc_2", service: "one_color", name: "원컬러 - 자주",   price: 45000, durationMinutes: 60 },
-    { id: "oc_3", service: "one_color", name: "원컬러 - 화이트", price: 45000, durationMinutes: 60 },
+    { id: "oc_1", service: "one-color", name: "원컬러 - 누드",   price: 45000, durationMinutes: 60 },
+    { id: "oc_2", service: "one-color", name: "원컬러 - 자주",   price: 45000, durationMinutes: 60 },
+    { id: "oc_3", service: "one-color", name: "원컬러 - 화이트", price: 45000, durationMinutes: 60 },
 
     { id: "pd_1", service: "pedicure", name: "페디큐어 기본",      price: 55000, durationMinutes: 90 },
     { id: "pd_2", service: "pedicure", name: "페디큐어 + 큐티클", price: 65000, durationMinutes: 105 },
 
-    { id: "hc_1", service: "hand_foot_care", name: "손 케어", price: 35000, durationMinutes: 45 },
-    { id: "hc_2", service: "hand_foot_care", name: "발 케어", price: 40000, durationMinutes: 60 },
+    { id: "hc_1", service: "hand-foot-care", name: "손 케어", price: 35000, durationMinutes: 45 },
+    { id: "hc_2", service: "hand-foot-care", name: "발 케어", price: 40000, durationMinutes: 60 },
   ],
   staff: [
     { id: "staff_orrn", name: "오른쌤" },

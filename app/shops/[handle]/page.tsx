@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { Clock, Phone, MapPin, Megaphone } from "lucide-react";
-import { getMockShopByHandle } from "@/lib/mockData";
+import { getShopByHandle } from "@/lib/data";
 import { ShopHeader } from "@/components/ShopHeader";
 import { OpenBadge } from "@/components/OpenBadge";
 import { CopyButton } from "@/components/CopyButton";
@@ -13,7 +13,7 @@ interface Params {
 
 export default async function ShopPage({ params }: Params) {
   const { handle } = await params;
-  const shop = getMockShopByHandle(handle);
+  const shop = await getShopByHandle(handle);
   if (!shop) notFound();
 
   return (

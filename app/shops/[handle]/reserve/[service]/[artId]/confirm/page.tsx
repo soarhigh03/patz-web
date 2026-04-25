@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Check } from "lucide-react";
-import { getMockArt, getMockShopByHandle } from "@/lib/mockData";
-import { isServiceType } from "@/lib/services";
+import { getArt, getShopByHandle } from "@/lib/data";
 
 interface Params {
   params: Promise<{ handle: string; service: string; artId: string }>;
@@ -10,11 +9,13 @@ interface Params {
 
 export default async function ConfirmationPage({ params }: Params) {
   const { handle, service, artId } = await params;
-  if (!isServiceType(service)) notFound();
 
-  const shop = getMockShopByHandle(handle);
-  const art = getMockArt(handle, artId);
-  if (!shop || !art || art.service !== service) notFound();
+  const shop = await getShopByHandle(handle);
+  if (!shop) notFound();
+  if (!shop.serviceCategories.some((c) => c.code === service)) notFound();
+
+  const art = await getArt(handle, artId);
+  if (!art || art.service !== service) notFound();
 
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center gap-5 px-6 text-center">

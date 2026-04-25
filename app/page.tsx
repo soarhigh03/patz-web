@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { listMockShops } from "@/lib/mockData";
+import { listShops } from "@/lib/data";
 
-export default function Home() {
-  const shops = listMockShops();
+export default async function Home() {
+  const shops = await listShops();
   return (
     <main className="px-6 py-16">
       <h1 className="text-2xl font-semibold">PATZ</h1>

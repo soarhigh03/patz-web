@@ -1,7 +1,6 @@
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { getMockArt } from "@/lib/mockData";
-import { isServiceType } from "@/lib/services";
+import { getArt, getShopByHandle } from "@/lib/data";
 import { formatDurationKR, formatPriceKRW } from "@/lib/format";
 import { StickyCTA } from "@/components/StickyCTA";
 
@@ -12,9 +11,12 @@ interface Params {
 /** Image #4 — art detail view. */
 export default async function ArtDetailPage({ params }: Params) {
   const { handle, service, artId } = await params;
-  if (!isServiceType(service)) notFound();
 
-  const art = getMockArt(handle, artId);
+  const shop = await getShopByHandle(handle);
+  if (!shop) notFound();
+  if (!shop.serviceCategories.some((c) => c.code === service)) notFound();
+
+  const art = await getArt(handle, artId);
   if (!art || art.service !== service) notFound();
 
   return (

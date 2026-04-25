@@ -1,27 +1,26 @@
-import type { ServiceType } from "./types";
+import type { ServiceCode, ServiceCategory } from "./types";
 
 /**
- * Display labels for each service type. Korean copy is sourced from the
- * Image #2 mockup. The order here is the canonical order used wherever
- * services are listed in a grid or filter.
+ * Default service categories seeded on shop creation in Postgres
+ * (see `seed_default_categories()` trigger in 0001_init.sql). The web app
+ * uses this list as a fallback whenever a shop is rendered from mock data
+ * (DB empty) so the option-select grid still has something to show.
+ *
+ * Real shops fetch their own `service_categories` from Supabase, including
+ * any custom ones (왁싱, 아이래시, ...).
  */
-export const SERVICE_ORDER: ServiceType[] = [
-  "nail_art",
-  "one_color",
-  "pedicure",
-  "hand_foot_care",
+export const DEFAULT_SERVICE_CATEGORIES: ServiceCategory[] = [
+  { code: "nail-art",       name: "네일아트 (손)" },
+  { code: "one-color",      name: "원컬러 (손)" },
+  { code: "pedicure",       name: "페디큐어" },
+  { code: "hand-foot-care", name: "손/발 케어" },
 ];
 
-export const SERVICE_LABELS: Record<ServiceType, string> = {
-  nail_art: "네일아트 (손)",
-  one_color: "원컬러 (손)",
-  pedicure: "페디큐어",
-  hand_foot_care: "손/발 케어",
-};
+const DEFAULT_BY_CODE = new Map(
+  DEFAULT_SERVICE_CATEGORIES.map((c) => [c.code, c]),
+);
 
-const ALL_TYPES = new Set<ServiceType>(SERVICE_ORDER);
-
-/** Type-guard that narrows a URL slug into a valid ServiceType. */
-export function isServiceType(value: string): value is ServiceType {
-  return ALL_TYPES.has(value as ServiceType);
+/** Lookup the display label for a default category code. */
+export function defaultCategoryLabel(code: ServiceCode): string | undefined {
+  return DEFAULT_BY_CODE.get(code)?.name;
 }

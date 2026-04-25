@@ -1,7 +1,6 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
-import type { Database } from "./types";
 
 /**
  * Server-side Supabase client. Use in server components, route handlers,
@@ -15,7 +14,12 @@ import type { Database } from "./types";
 export async function createClient() {
   const cookieStore = await cookies();
 
-  return createServerClient<Database>(
+  // Note: not passing the Database generic — until `supabase gen types` is
+  // run, the hand-rolled types in ./types.ts are incomplete (no Insert/Update
+  // shapes) and cause query results to infer as `never`. Local row types are
+  // applied via casts in lib/data.ts. Swap back to the generic once the
+  // generated types land.
+  return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
     {

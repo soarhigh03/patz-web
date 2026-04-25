@@ -1,5 +1,5 @@
 import "server-only";
-import type { Art, Shop, ServiceType, ShopMockup, StaffSeed } from "./types";
+import type { Art, Shop, ServiceCode, ShopMockup, StaffSeed } from "./types";
 import { resolveMockAsset } from "./mockAssets";
 
 import orrnnail from "@/public/mockups/orrnnail/mockup";
@@ -66,7 +66,7 @@ export function getMockShopByHandle(handle: string): Shop | undefined {
   return HYDRATED.find((h) => h.shop.handle === handle)?.shop;
 }
 
-export function listMockArts(handle: string, service?: ServiceType): Art[] {
+export function listMockArts(handle: string, service?: ServiceCode): Art[] {
   const all = HYDRATED.find((h) => h.shop.handle === handle)?.arts ?? [];
   return service ? all.filter((a) => a.service === service) : all;
 }
