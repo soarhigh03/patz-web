@@ -8,10 +8,19 @@
 
 html, body {
   height: 100%;
-  background: #ffffff;
-  color: #111111;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  /*
+   * Black gutters around the 430px mobile column on PC. On mobile the
+   * column fills the viewport horizontally so this only shows during
+   * vertical overscroll. The inner column has its own bg-white so
+   * content always sits on white.
+   */
+  background: #000;
+  color: #111111;
 }
 
 /* iOS safe-area aware sticky bottom CTA */
