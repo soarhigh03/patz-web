@@ -52,6 +52,13 @@ export interface Art {
   price: number;
   durationMinutes: number;
   imageUrl?: string;
+  /**
+   * Aspect ratio (width / height) used to render placeholder boxes in the
+   * masonry feed before the real image loads. Set when seeding mock data;
+   * once images come from Supabase Storage we can derive this from the file
+   * dimensions or default to 1.
+   */
+  aspectRatio?: number;
 }
 
 export interface Staff {
