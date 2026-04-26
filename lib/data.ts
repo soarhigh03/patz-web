@@ -51,6 +51,11 @@ function storagePublicUrl(bucket: string, path: string): string {
   return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${path}`;
 }
 
+function trimToHHmm(t: string | null): string | undefined {
+  if (!t) return undefined;
+  return t.length >= 5 ? t.slice(0, 5) : t;
+}
+
 function shopImage(
   storagePath: string | null,
   mockBasename: string,
@@ -78,10 +83,12 @@ function rowToShop(row: ShopRow, categories: ServiceCategory[]): Shop {
     phone: row.phone ?? "",
     address: row.address ?? "",
     hours: {
-      open: row.hours_open ?? "00:00",
-      close: row.hours_close ?? "23:59",
-      breakStart: row.hours_break_start ?? undefined,
-      breakEnd: row.hours_break_end ?? undefined,
+      // Postgres `time` serializes as "HH:MM:SS"; the BusinessHours contract
+      // is "HH:mm" — trim the seconds at the boundary.
+      open: trimToHHmm(row.hours_open) ?? "00:00",
+      close: trimToHHmm(row.hours_close) ?? "23:59",
+      breakStart: trimToHHmm(row.hours_break_start),
+      breakEnd: trimToHHmm(row.hours_break_end),
       closedWeekdays: ((row.closed_weekdays ?? []) as number[]).map(
         (n) => n as 0 | 1 | 2 | 3 | 4 | 5 | 6,
       ),
