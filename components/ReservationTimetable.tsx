@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useState, useTransition } from "react";
 import Image from "next/image";
-import { Check, Coffee, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Coffee, X } from "lucide-react";
 import { formatPriceKRW, formatDurationKR } from "@/lib/format";
 import { SLOT_INTERVAL_MIN } from "@/lib/duration";
 import { cn } from "@/lib/utils";
@@ -39,6 +39,11 @@ export function ReservationTimetable({
 }: ReservationTimetableProps) {
   const [selected, setSelected] = useState<ShopReservation | null>(null);
 
+  // Single-day view; left/right navigation steps by 1 day. Backwards is
+  // clamped to today since the server only loads `reservation_date >= today`.
+  const today = todayKST();
+  const [selectedDate, setSelectedDate] = useState<string>(today);
+
   useEffect(() => {
     if (!selected) return;
     const onKey = (e: KeyboardEvent) => {
@@ -48,45 +53,49 @@ export function ReservationTimetable({
     return () => window.removeEventListener("keydown", onKey);
   }, [selected]);
 
-  if (reservations.length === 0) {
-    return (
-      <div className="rounded-xl border border-dashed border-line p-8 text-center text-sm text-muted">
-        아직 들어온 예약이 없어요.
-      </div>
-    );
-  }
-
-  // Group by date — server returns date-then-time order, so we can scan once.
-  const groups: Array<{ date: string; items: ShopReservation[] }> = [];
-  for (const r of reservations) {
-    const last = groups[groups.length - 1];
-    if (last && last.date === r.reservationDate) last.items.push(r);
-    else groups.push({ date: r.reservationDate, items: [r] });
-  }
+  const dayItems = reservations.filter(
+    (r) => r.reservationDate === selectedDate,
+  );
 
   const openMin = parseHHmm(shopHours.open);
   const closeMin = parseHHmm(shopHours.close);
+  const canGoBack = selectedDate > today;
 
   return (
     <>
-      <div className="space-y-8">
-        {groups.map((g) => (
-          <DayGrid
-            key={g.date}
-            date={g.date}
-            items={g.items}
-            openMin={openMin}
-            closeMin={closeMin}
-            breakStart={
-              shopHours.breakStart ? parseHHmm(shopHours.breakStart) : null
-            }
-            breakEnd={
-              shopHours.breakEnd ? parseHHmm(shopHours.breakEnd) : null
-            }
-            onOpen={setSelected}
-          />
-        ))}
+      <div className="mb-3 flex items-center justify-center gap-3">
+        <button
+          type="button"
+          onClick={() => canGoBack && setSelectedDate(shiftDate(selectedDate, -1))}
+          disabled={!canGoBack}
+          aria-label="이전 날"
+          className="flex h-8 w-8 items-center justify-center rounded-full text-muted transition hover:bg-neutral-100 disabled:opacity-30 disabled:hover:bg-transparent"
+        >
+          <ChevronLeft size={18} />
+        </button>
+        <h3 className="min-w-[8rem] text-center text-sm font-medium tabular-nums">
+          {formatDateHeader(selectedDate)}
+        </h3>
+        <button
+          type="button"
+          onClick={() => setSelectedDate(shiftDate(selectedDate, 1))}
+          aria-label="다음 날"
+          className="flex h-8 w-8 items-center justify-center rounded-full text-muted transition hover:bg-neutral-100"
+        >
+          <ChevronRight size={18} />
+        </button>
       </div>
+
+      <DayGrid
+        items={dayItems}
+        openMin={openMin}
+        closeMin={closeMin}
+        breakStart={
+          shopHours.breakStart ? parseHHmm(shopHours.breakStart) : null
+        }
+        breakEnd={shopHours.breakEnd ? parseHHmm(shopHours.breakEnd) : null}
+        onOpen={setSelected}
+      />
 
       {selected && (
         <ReservationDetailModal
@@ -104,7 +113,6 @@ interface GridCell {
 }
 
 function DayGrid({
-  date,
   items,
   openMin,
   closeMin,
@@ -112,7 +120,6 @@ function DayGrid({
   breakEnd,
   onOpen,
 }: {
-  date: string;
   items: ShopReservation[];
   openMin: number;
   closeMin: number;
@@ -149,17 +156,15 @@ function DayGrid({
   }
 
   return (
-    <section>
-      <h3 className="mb-3 text-sm font-medium">{formatDateHeader(date)}</h3>
-      <div
-        className="grid overflow-hidden rounded-xl border border-line"
-        style={{
-          gridTemplateColumns: "64px 1fr",
-          // Each 30-min slot is at least 56px tall; rows expand to fit a
-          // card that needs more height (e.g. a pending 30-min booking).
-          gridAutoRows: "minmax(56px, auto)",
-        }}
-      >
+    <div
+      className="grid overflow-hidden rounded-xl border border-line"
+      style={{
+        gridTemplateColumns: "64px 1fr",
+        // Each 30-min slot is at least 56px tall; rows expand to fit a
+        // card that needs more height (e.g. a pending 30-min booking).
+        gridAutoRows: "minmax(56px, auto)",
+      }}
+    >
         {/* Background layer: time labels in column 1, empty cells +
             row dividers in column 2. Reservations and break overlay this. */}
         {slotMinutes.map((slot, i) => (
@@ -211,8 +216,7 @@ function DayGrid({
             <ReservationCard r={r} onOpen={onOpen} fill />
           </div>
         ))}
-      </div>
-    </section>
+    </div>
   );
 }
 
@@ -450,6 +454,23 @@ function formatDateHeader(ymd: string): string {
   const dt = new Date(Date.UTC(y, m - 1, d, 12));
   const weekday = ["일", "월", "화", "수", "목", "금", "토"][dt.getUTCDay()];
   return `${m}월 ${d}일 (${weekday})`;
+}
+
+/** Today as YYYY-MM-DD in Asia/Seoul. */
+function todayKST(): string {
+  return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
+}
+
+/** Step a YYYY-MM-DD by N days. UTC noon avoids DST drift; we only care
+ *  about the calendar Y-M-D. */
+function shiftDate(ymd: string, deltaDays: number): string {
+  const [y, m, d] = ymd.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d, 12));
+  dt.setUTCDate(dt.getUTCDate() + deltaDays);
+  const yy = dt.getUTCFullYear();
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getUTCDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
 }
 
 function formatPhone(digits: string): string {
