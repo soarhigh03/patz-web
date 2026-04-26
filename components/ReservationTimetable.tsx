@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { Fragment, useEffect, useState, useTransition } from "react";
 import Image from "next/image";
-import { Check, X } from "lucide-react";
+import { Check, Coffee, X } from "lucide-react";
 import { formatPriceKRW, formatDurationKR } from "@/lib/format";
 import { SLOT_INTERVAL_MIN } from "@/lib/duration";
 import { cn } from "@/lib/utils";
@@ -27,10 +27,11 @@ interface ReservationTimetableProps {
 /**
  * Shop dashboard timetable.
  *
- * Per day, draws a 30-min slot grid spanning the shop's open hours. Each
- * reservation occupies its starting slot (full card with detail + 수락/거절
- * for pending) and renders a faded "예약중" placeholder in the slots it
- * spans, so gaps are visually obvious.
+ * Per day, draws a 30-min slot grid spanning the shop's open hours.
+ * Reservations are rendered as overlay cards positioned with CSS-grid
+ * row-spans so a 90-min booking visually covers all three of its slots
+ * (12:00 / 12:30 / 13:00) as one continuous block. The break window is
+ * drawn the same way.
  */
 export function ReservationTimetable({
   reservations,
@@ -76,6 +77,12 @@ export function ReservationTimetable({
             items={g.items}
             openMin={openMin}
             closeMin={closeMin}
+            breakStart={
+              shopHours.breakStart ? parseHHmm(shopHours.breakStart) : null
+            }
+            breakEnd={
+              shopHours.breakEnd ? parseHHmm(shopHours.breakEnd) : null
+            }
             onOpen={setSelected}
           />
         ))}
@@ -91,73 +98,120 @@ export function ReservationTimetable({
   );
 }
 
+interface GridCell {
+  startRow: number; // 0-based slot index from openMin
+  span: number;     // number of 30-min slots covered
+}
+
 function DayGrid({
   date,
   items,
   openMin,
   closeMin,
+  breakStart,
+  breakEnd,
   onOpen,
 }: {
   date: string;
   items: ShopReservation[];
   openMin: number;
   closeMin: number;
+  breakStart: number | null;
+  breakEnd: number | null;
   onOpen: (r: ShopReservation) => void;
 }) {
-  // Index reservations by their starting slot, snapped to a 30-min boundary.
-  const startingHere = new Map<number, ShopReservation[]>();
-  const occupies = items.map((r) => {
-    const s = parseHHmm(r.reservationTime);
-    const snapped = Math.floor(s / SLOT_INTERVAL_MIN) * SLOT_INTERVAL_MIN;
-    const list = startingHere.get(snapped) ?? [];
-    list.push(r);
-    startingHere.set(snapped, list);
-    return { start: s, end: s + r.durationMinutes };
-  });
-
   const slotMinutes: number[] = [];
   for (let s = openMin; s < closeMin; s += SLOT_INTERVAL_MIN) slotMinutes.push(s);
+  const totalRows = slotMinutes.length;
+
+  const reservationCells: Array<GridCell & { r: ShopReservation }> = items.map(
+    (r) => ({ r, ...positionFor(parseHHmm(r.reservationTime), r.durationMinutes) }),
+  );
+
+  const breakCell: (GridCell & { startMin: number; endMin: number }) | null =
+    breakStart !== null && breakEnd !== null && breakEnd > breakStart
+      ? {
+          ...positionFor(breakStart, breakEnd - breakStart),
+          startMin: breakStart,
+          endMin: breakEnd,
+        }
+      : null;
+
+  function positionFor(startMin: number, durationMin: number): GridCell {
+    const snapped = Math.floor(startMin / SLOT_INTERVAL_MIN) * SLOT_INTERVAL_MIN;
+    const startRow = Math.max(
+      0,
+      Math.floor((snapped - openMin) / SLOT_INTERVAL_MIN),
+    );
+    const rawSpan = Math.max(1, Math.ceil(durationMin / SLOT_INTERVAL_MIN));
+    const span = Math.max(1, Math.min(rawSpan, totalRows - startRow));
+    return { startRow, span };
+  }
 
   return (
     <section>
       <h3 className="mb-3 text-sm font-medium">{formatDateHeader(date)}</h3>
-      <ul className="overflow-hidden rounded-xl border border-line">
-        {slotMinutes.map((slotStart, i) => {
-          const slotEnd = slotStart + SLOT_INTERVAL_MIN;
-          const starting = startingHere.get(slotStart) ?? [];
-          const isCovered = occupies.some(
-            (o) => o.start < slotEnd && slotStart < o.end,
-          );
-          const isPlaceholder = starting.length === 0 && isCovered;
-
-          return (
-            <li
-              key={slotStart}
+      <div
+        className="grid overflow-hidden rounded-xl border border-line"
+        style={{
+          gridTemplateColumns: "64px 1fr",
+          // Each 30-min slot is at least 56px tall; rows expand to fit a
+          // card that needs more height (e.g. a pending 30-min booking).
+          gridAutoRows: "minmax(56px, auto)",
+        }}
+      >
+        {/* Background layer: time labels in column 1, empty cells +
+            row dividers in column 2. Reservations and break overlay this. */}
+        {slotMinutes.map((slot, i) => (
+          <Fragment key={slot}>
+            <div
               className={cn(
-                "flex items-stretch gap-3 px-3 py-2",
+                "px-3 pt-2 text-xs tabular-nums text-muted",
                 i > 0 && "border-t border-line",
               )}
+              style={{ gridColumn: 1, gridRow: i + 1 }}
             >
-              <span className="w-12 shrink-0 pt-1 text-xs font-medium tabular-nums text-muted">
-                {toHHmm(slotStart)}
-              </span>
-              <div className="flex-1 space-y-1.5">
-                {starting.map((r) => (
-                  <ReservationCard key={r.id} r={r} onOpen={onOpen} />
-                ))}
-                {isPlaceholder && (
-                  <div className="rounded-lg bg-neutral-50 px-3 py-1.5 text-xs text-muted">
-                    예약 진행 중
-                  </div>
-                )}
-                {!isCovered && starting.length === 0 && (
-                  <div className="h-7" aria-hidden />
-                )}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+              {toHHmm(slot)}
+            </div>
+            <div
+              className={cn(i > 0 && "border-t border-line")}
+              style={{ gridColumn: 2, gridRow: i + 1 }}
+              aria-hidden
+            />
+          </Fragment>
+        ))}
+
+        {/* Break window — drawn under reservations so a same-time booking
+            (shouldn't happen, but if it does) visually wins. */}
+        {breakCell && (
+          <div
+            className="z-0 m-1.5 flex items-center justify-center gap-1.5 rounded-lg bg-neutral-100 text-xs text-muted"
+            style={{
+              gridColumn: 2,
+              gridRow: `${breakCell.startRow + 1} / span ${breakCell.span}`,
+            }}
+          >
+            <Coffee size={13} />
+            <span>
+              휴게 · {toHHmm(breakCell.startMin)}–{toHHmm(breakCell.endMin)}
+            </span>
+          </div>
+        )}
+
+        {/* Reservation cards as overlays — span the full duration. */}
+        {reservationCells.map(({ r, startRow, span }) => (
+          <div
+            key={r.id}
+            className="z-10 p-1.5"
+            style={{
+              gridColumn: 2,
+              gridRow: `${startRow + 1} / span ${span}`,
+            }}
+          >
+            <ReservationCard r={r} onOpen={onOpen} fill />
+          </div>
+        ))}
+      </div>
     </section>
   );
 }
@@ -165,9 +219,13 @@ function DayGrid({
 function ReservationCard({
   r,
   onOpen,
+  fill,
 }: {
   r: ShopReservation;
   onOpen: (r: ShopReservation) => void;
+  /** When true, the card stretches to fill its grid cell vertically so a
+   *  multi-slot reservation visually covers all slots it spans. */
+  fill?: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -190,6 +248,7 @@ function ReservationCard({
     <div
       className={cn(
         "rounded-lg border p-2.5",
+        fill && "flex h-full flex-col",
         isPendingStatus
           ? "border-amber-300 bg-amber-50"
           : "border-line bg-white",
@@ -198,7 +257,7 @@ function ReservationCard({
       <button
         type="button"
         onClick={() => onOpen(r)}
-        className="block w-full text-left"
+        className={cn("block w-full text-left", fill && "flex-1")}
       >
         <div className="flex items-center gap-2">
           {isPendingStatus && (
@@ -217,7 +276,7 @@ function ReservationCard({
       </button>
 
       {isPendingStatus && (
-        <div className="mt-2 flex gap-2">
+        <div className="mt-2 flex shrink-0 gap-2">
           <button
             type="button"
             onClick={(e) => handle("accept", e)}
