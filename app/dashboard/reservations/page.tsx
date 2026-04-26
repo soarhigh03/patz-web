@@ -15,7 +15,7 @@ export default async function DashboardReservationsPage() {
   const { data: shopRow } = await supabase
     .from("shops")
     .select(
-      "id, handle, name, hours_open, hours_close, hours_break_start, hours_break_end",
+      "id, handle, name, hours_open, hours_close, hours_break_start, hours_break_end, closed_weekdays",
     )
     .eq("owner_id", user.id)
     .maybeSingle();
@@ -28,6 +28,7 @@ export default async function DashboardReservationsPage() {
         hours_close: string | null;
         hours_break_start: string | null;
         hours_break_end: string | null;
+        closed_weekdays: number[] | null;
       }
     | null;
 
@@ -53,7 +54,7 @@ export default async function DashboardReservationsPage() {
   return (
     <main className="min-h-dvh px-6 pt-12 pb-10">
       <BackLink />
-      <header className="mt-6">
+      <header className="mt-6 lg:mt-0">
         <h1 className="text-2xl font-semibold tracking-tight">예약 관리</h1>
         <p className="mt-1 text-sm text-muted">
           {shop.name} · 요청 {pendingCount}건 · 확정 {confirmedCount}건
@@ -68,6 +69,7 @@ export default async function DashboardReservationsPage() {
             close: trimSeconds(shop.hours_close) ?? "20:00",
             breakStart: trimSeconds(shop.hours_break_start),
             breakEnd: trimSeconds(shop.hours_break_end),
+            closedWeekdays: (shop.closed_weekdays ?? []) as number[],
           }}
         />
       </section>
@@ -79,7 +81,7 @@ function BackLink() {
   return (
     <Link
       href="/dashboard"
-      className="inline-flex items-center gap-1 text-sm text-muted hover:text-ink"
+      className="inline-flex items-center gap-1 text-sm text-muted hover:text-ink lg:hidden"
     >
       <ChevronLeft size={16} />
       대시보드

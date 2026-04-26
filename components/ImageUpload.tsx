@@ -21,6 +21,9 @@ interface ImageUploadProps {
   /** Existing image URL to show as the initial preview. */
   currentUrl?: string;
   aspect?: "square" | "wide";
+  /** Optional override for the preview's width class (Tailwind), e.g. "w-64".
+   *  Defaults to "w-32" for square and "w-full" for wide. */
+  previewClassName?: string;
   /** Called with the new storage path after a successful upload. The parent
    *  is responsible for persisting it (server action OR local form state). */
   onUploaded: (path: string) => Promise<void> | void;
@@ -40,6 +43,7 @@ export function ImageUpload({
   filenameBase,
   currentUrl,
   aspect = "square",
+  previewClassName,
   onUploaded,
   hint,
   label,
@@ -103,7 +107,8 @@ export function ImageUpload({
       <div
         className={cn(
           "relative mt-2 overflow-hidden rounded-xl border border-line bg-neutral-100",
-          aspect === "square" ? "aspect-square w-32" : "aspect-[3/1] w-full",
+          aspect === "square" ? "aspect-square" : "aspect-[3/1]",
+          previewClassName ?? (aspect === "square" ? "w-32" : "w-full"),
         )}
       >
         {previewUrl ? (

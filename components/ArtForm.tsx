@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ImageUpload } from "./ImageUpload";
-import { StickyCTA } from "./StickyCTA";
 import { cn } from "@/lib/utils";
 import { saveArt, archiveArt } from "@/app/dashboard/arts/actions";
 
@@ -89,17 +88,21 @@ export function ArtForm({ initial, mode, shopId, categories }: ArtFormProps) {
 
   return (
     <form onSubmit={handleSubmit} noValidate className="pb-2">
-      <div className="space-y-7 pt-8">
-        <ImageUpload
-          label="아트 사진"
-          pathPrefix={`${shopId}/arts`}
-          filenameBase={initial.id}
-          aspect="square"
-          currentUrl={initial.imageUrl}
-          hint="JPEG / PNG / WEBP, 5MB 이하."
-          onUploaded={(path) => setImagePath(path)}
-        />
+      <div className="pt-8 lg:grid lg:grid-cols-[320px_minmax(0,1fr)] lg:items-start lg:gap-12">
+        <div className="lg:sticky lg:top-8">
+          <ImageUpload
+            label="아트 사진"
+            pathPrefix={`${shopId}/arts`}
+            filenameBase={initial.id}
+            aspect="square"
+            previewClassName="w-32 lg:w-full"
+            currentUrl={initial.imageUrl}
+            hint="JPEG / PNG / WEBP, 5MB 이하."
+            onUploaded={(path) => setImagePath(path)}
+          />
+        </div>
 
+        <div className="mt-7 space-y-7 lg:mt-0">
         <Field label="카테고리" required>
           <div className="mt-2 flex flex-wrap gap-2">
             {categories.map((c) => (
@@ -171,32 +174,45 @@ export function ArtForm({ initial, mode, shopId, categories }: ArtFormProps) {
           />
           <span className="text-sm font-medium">이달의 아트</span>
         </label>
-      </div>
 
-      {error && (
-        <p className="px-6 pt-4 text-center text-xs text-accent">{error}</p>
-      )}
+        {error && (
+          <p className="pt-2 text-center text-xs text-accent lg:text-left">
+            {error}
+          </p>
+        )}
 
-      <StickyCTA sticky={false} disabled={!isValid || isPending}>
-        {isPending
-          ? "저장 중…"
-          : mode === "create"
-            ? "아트 추가"
-            : "변경사항 저장"}
-      </StickyCTA>
-
-      {mode === "edit" && (
-        <div className="px-6 pt-2 text-center">
+        <div className="px-6 pb-6 pt-4 lg:px-0 lg:pb-0">
           <button
-            type="button"
-            onClick={handleArchive}
-            disabled={isPending}
-            className="text-xs text-muted underline hover:text-accent disabled:opacity-50"
+            type="submit"
+            disabled={!isValid || isPending}
+            className={cn(
+              "block w-full rounded-full bg-ink py-4 text-center text-base font-medium text-white transition active:scale-[0.99] disabled:opacity-50",
+              "shadow-[0_4px_10px_-3px_rgba(0,0,0,0.35),_0_14px_30px_-8px_rgba(0,0,0,0.4)]",
+              "lg:max-w-xs lg:py-3 lg:text-sm lg:shadow-none",
+            )}
           >
-            아트 보관 처리
+            {isPending
+              ? "저장 중…"
+              : mode === "create"
+                ? "아트 추가"
+                : "변경사항 저장"}
           </button>
         </div>
-      )}
+
+        {mode === "edit" && (
+          <div className="px-6 pt-2 text-center lg:px-0 lg:text-left">
+            <button
+              type="button"
+              onClick={handleArchive}
+              disabled={isPending}
+              className="text-xs text-muted underline hover:text-accent disabled:opacity-50"
+            >
+              아트 보관 처리
+            </button>
+          </div>
+        )}
+        </div>
+      </div>
     </form>
   );
 }

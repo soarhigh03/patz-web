@@ -13,7 +13,7 @@ import {
   getBusyIntervals,
   submitReservation,
   type BusyInterval,
-} from "@/app/shops/[handle]/reserve/[service]/[artId]/form/actions";
+} from "@/app/(public)/shops/[handle]/reserve/[service]/[artId]/form/actions";
 import type { Art, Shop, StaffSeed } from "@/lib/types";
 
 interface ReservationFormProps {

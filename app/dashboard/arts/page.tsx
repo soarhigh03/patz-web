@@ -80,14 +80,14 @@ export default async function ArtsListPage() {
   return (
     <main className="min-h-dvh px-6 pt-12 pb-10">
       <BackLink />
-      <header className="mt-6 flex items-end justify-between">
+      <header className="mt-6 flex items-end justify-between lg:mt-0">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">아트 관리</h1>
           <p className="mt-1 text-sm text-muted">총 {arts.length}개</p>
         </div>
         <Link
           href="/dashboard/arts/new"
-          className="inline-flex items-center gap-1 rounded-full border border-line px-3 py-1.5 text-sm hover:bg-neutral-50"
+          className="inline-flex items-center gap-1 rounded-full border border-line px-3 py-1.5 text-sm hover:bg-neutral-50 lg:bg-ink lg:text-white lg:border-ink lg:px-4 lg:py-2 lg:hover:bg-ink/90"
         >
           <Plus size={14} />새 아트
         </Link>
@@ -98,11 +98,11 @@ export default async function ArtsListPage() {
           등록된 아트가 없어요.
         </div>
       ) : (
-        <div className="mt-8 space-y-8">
+        <div className="mt-8 space-y-10">
           {sortedGroups.map(([code, g]) => (
             <section key={code}>
               <h2 className="mb-3 text-sm font-medium text-muted">{g.name}</h2>
-              <ul className="grid grid-cols-2 gap-3">
+              <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                 {g.items.map((a) => (
                   <li key={a.id}>
                     <Link
@@ -152,7 +152,7 @@ function BackLink() {
   return (
     <Link
       href="/dashboard"
-      className="-ml-1 inline-flex items-center gap-1 text-sm text-muted hover:text-ink"
+      className="-ml-1 inline-flex items-center gap-1 text-sm text-muted hover:text-ink lg:hidden"
     >
       <ChevronLeft size={16} />
       대시보드

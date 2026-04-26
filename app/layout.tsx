@@ -27,11 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
         />
       </head>
-      <body className="font-sans antialiased">
-        <div className="mx-auto min-h-dvh w-full max-w-mobile bg-white">
-          {children}
-        </div>
-      </body>
+      <body className="font-sans antialiased bg-white">{children}</body>
     </html>
   );
 }

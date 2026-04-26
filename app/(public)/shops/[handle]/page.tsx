@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Clock, Phone, MapPin, Megaphone } from "lucide-react";
+import { Clock, Phone, MapPin, Megaphone, LayoutDashboard } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
 import { getShopByHandle } from "@/lib/data";
 import { ShopHeader } from "@/components/ShopHeader";
 import { OpenBadge } from "@/components/OpenBadge";
@@ -16,8 +18,35 @@ export default async function ShopPage({ params }: Params) {
   const shop = await getShopByHandle(handle);
   if (!shop) notFound();
 
+  // If the viewer owns this shop, surface a top banner with a one-click path
+  // back to the dashboard. Without this, an owner who lands here (bookmark,
+  // shared link, OAuth fallback URL) has no obvious way to switch context.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  let isOwner = false;
+  if (user) {
+    const { data: ownedRow } = await supabase
+      .from("shops")
+      .select("id")
+      .eq("handle", handle)
+      .eq("owner_id", user.id)
+      .maybeSingle();
+    isOwner = ownedRow !== null;
+  }
+
   return (
     <main className="pb-2">
+      {isOwner && (
+        <Link
+          href="/dashboard"
+          className="flex items-center justify-center gap-2 bg-ink px-4 py-2.5 text-sm font-medium text-white hover:opacity-90"
+        >
+          <LayoutDashboard size={14} />
+          오너로 로그인되어 있어요 — 대시보드로 가기
+        </Link>
+      )}
       <ShopHeader shop={shop} />
 
       <section className="mt-6 space-y-5 px-6">

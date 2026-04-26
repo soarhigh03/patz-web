@@ -42,12 +42,12 @@ export default async function ShopFormPage() {
     <main className="min-h-dvh px-6 pt-12 pb-16">
       <Link
         href="/dashboard"
-        className="-ml-1 inline-flex items-center gap-1 text-sm text-muted hover:text-ink"
+        className="-ml-1 inline-flex items-center gap-1 text-sm text-muted hover:text-ink lg:hidden"
       >
         <ChevronLeft size={16} />
         대시보드
       </Link>
-      <header className="mt-6">
+      <header className="mt-6 lg:mt-0">
         <h1 className="text-2xl font-semibold tracking-tight">
           {mode === "create" ? "샵 만들기" : "샵 정보 수정"}
         </h1>

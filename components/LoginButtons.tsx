@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 type Provider = "kakao" | "google";
 
-export default function LoginPage() {
+export function LoginButtons() {
   const supabase = createClient();
   const [busy, setBusy] = useState<Provider | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -36,42 +36,35 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-between px-6 pb-10 pt-24">
-      <div className="flex flex-col items-center">
-        <h1 className="text-3xl font-semibold tracking-tight">PATZ</h1>
-        <p className="mt-3 text-sm text-muted">샵 사장님 로그인</p>
-      </div>
+    <div className="flex w-full flex-col gap-3 pb-4">
+      <SocialButton
+        onClick={() => signIn("kakao")}
+        disabled={busy !== null}
+        loading={busy === "kakao"}
+        className="bg-[#FEE500] text-ink"
+      >
+        카카오로 시작하기
+      </SocialButton>
 
-      <div className="flex w-full flex-col gap-3 pb-4">
-        <SocialButton
-          onClick={() => signIn("kakao")}
-          disabled={busy !== null}
-          loading={busy === "kakao"}
-          className="bg-[#FEE500] text-ink"
-        >
-          카카오로 시작하기
-        </SocialButton>
+      <SocialButton
+        onClick={() => signIn("google")}
+        disabled={busy !== null}
+        loading={busy === "google"}
+        className="border border-line bg-white text-ink"
+      >
+        Google로 시작하기
+      </SocialButton>
 
-        <SocialButton
-          onClick={() => signIn("google")}
-          disabled={busy !== null}
-          loading={busy === "google"}
-          className="border border-line bg-white text-ink"
-        >
-          Google로 시작하기
-        </SocialButton>
-
-        {error && (
-          <p className="mt-1 text-center text-xs text-accent">
-            로그인 중 문제가 발생했어요: {error}
-          </p>
-        )}
-
-        <p className="mt-4 text-center text-xs leading-relaxed text-muted">
-          로그인 시 PATZ 이용약관 및 개인정보처리방침에 동의하는 것으로 간주됩니다.
+      {error && (
+        <p className="mt-1 text-center text-xs text-accent">
+          로그인 중 문제가 발생했어요: {error}
         </p>
-      </div>
-    </main>
+      )}
+
+      <p className="mt-4 text-center text-xs leading-relaxed text-muted">
+        로그인 시 PATZ 이용약관 및 개인정보처리방침에 동의하는 것으로 간주됩니다.
+      </p>
+    </div>
   );
 }
 

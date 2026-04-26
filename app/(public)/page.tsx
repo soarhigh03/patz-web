@@ -1,7 +1,26 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
 import { listShops } from "@/lib/data";
 
 export default async function Home() {
+  // A logged-in onboarded shop owner who lands on `/` should jump straight
+  // into the dashboard instead of seeing the public marketing list.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("onboarded_at")
+      .eq("id", user.id)
+      .maybeSingle();
+    const onboarded = (profile as { onboarded_at: string | null } | null)
+      ?.onboarded_at;
+    redirect(onboarded ? "/dashboard" : "/onboarding");
+  }
+
   const shops = await listShops();
   return (
     <main className="px-6 py-16">

@@ -17,6 +17,8 @@ interface ShopHours {
   close: string;
   breakStart?: string;
   breakEnd?: string;
+  /** 0=Sun..6=Sat. Used by the weekly view to grey out closed columns. */
+  closedWeekdays?: number[];
 }
 
 interface ReservationTimetableProps {
@@ -24,25 +26,23 @@ interface ReservationTimetableProps {
   shopHours: ShopHours;
 }
 
+const KOREAN_WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
+
 /**
  * Shop dashboard timetable.
  *
- * Per day, draws a 30-min slot grid spanning the shop's open hours.
- * Reservations are rendered as overlay cards positioned with CSS-grid
- * row-spans so a 90-min booking visually covers all three of its slots
- * (12:00 / 12:30 / 13:00) as one continuous block. The break window is
- * drawn the same way.
+ * Renders two views — switched purely with Tailwind responsive classes so
+ * SSR/hydration stays simple:
+ *   - Mobile (`<lg`): day pager. Existing UX, one day at a time.
+ *   - PC (`>=lg`): weekly grid. 7 day-columns × 30-min rows on one screen.
+ *
+ * Both share the modal + accept/reject card so logic stays in one place.
  */
 export function ReservationTimetable({
   reservations,
   shopHours,
 }: ReservationTimetableProps) {
   const [selected, setSelected] = useState<ShopReservation | null>(null);
-
-  // Single-day view; left/right navigation steps by 1 day. Backwards is
-  // clamped to today since the server only loads `reservation_date >= today`.
-  const today = todayKST();
-  const [selectedDate, setSelectedDate] = useState<string>(today);
 
   useEffect(() => {
     if (!selected) return;
@@ -53,10 +53,51 @@ export function ReservationTimetable({
     return () => window.removeEventListener("keydown", onKey);
   }, [selected]);
 
+  return (
+    <>
+      <div className="lg:hidden">
+        <DayView
+          reservations={reservations}
+          shopHours={shopHours}
+          onOpen={setSelected}
+        />
+      </div>
+      <div className="hidden lg:block">
+        <WeekView
+          reservations={reservations}
+          shopHours={shopHours}
+          onOpen={setSelected}
+        />
+      </div>
+
+      {selected && (
+        <ReservationDetailModal
+          reservation={selected}
+          onClose={() => setSelected(null)}
+        />
+      )}
+    </>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Mobile: single-day view                                                   */
+/* -------------------------------------------------------------------------- */
+
+function DayView({
+  reservations,
+  shopHours,
+  onOpen,
+}: {
+  reservations: ShopReservation[];
+  shopHours: ShopHours;
+  onOpen: (r: ShopReservation) => void;
+}) {
+  const today = todayKST();
+  const [selectedDate, setSelectedDate] = useState<string>(today);
   const dayItems = reservations.filter(
     (r) => r.reservationDate === selectedDate,
   );
-
   const openMin = parseHHmm(shopHours.open);
   const closeMin = parseHHmm(shopHours.close);
   const canGoBack = selectedDate > today;
@@ -66,7 +107,9 @@ export function ReservationTimetable({
       <div className="mb-3 flex items-center justify-center gap-3">
         <button
           type="button"
-          onClick={() => canGoBack && setSelectedDate(shiftDate(selectedDate, -1))}
+          onClick={() =>
+            canGoBack && setSelectedDate(shiftDate(selectedDate, -1))
+          }
           disabled={!canGoBack}
           aria-label="이전 날"
           className="flex h-8 w-8 items-center justify-center rounded-full text-muted transition hover:bg-neutral-100 disabled:opacity-30 disabled:hover:bg-transparent"
@@ -94,22 +137,15 @@ export function ReservationTimetable({
           shopHours.breakStart ? parseHHmm(shopHours.breakStart) : null
         }
         breakEnd={shopHours.breakEnd ? parseHHmm(shopHours.breakEnd) : null}
-        onOpen={setSelected}
+        onOpen={onOpen}
       />
-
-      {selected && (
-        <ReservationDetailModal
-          reservation={selected}
-          onClose={() => setSelected(null)}
-        />
-      )}
     </>
   );
 }
 
 interface GridCell {
   startRow: number; // 0-based slot index from openMin
-  span: number;     // number of 30-min slots covered
+  span: number; // number of 30-min slots covered
 }
 
 function DayGrid({
@@ -131,6 +167,17 @@ function DayGrid({
   for (let s = openMin; s < closeMin; s += SLOT_INTERVAL_MIN) slotMinutes.push(s);
   const totalRows = slotMinutes.length;
 
+  function positionFor(startMin: number, durationMin: number): GridCell {
+    const snapped = Math.floor(startMin / SLOT_INTERVAL_MIN) * SLOT_INTERVAL_MIN;
+    const startRow = Math.max(
+      0,
+      Math.floor((snapped - openMin) / SLOT_INTERVAL_MIN),
+    );
+    const rawSpan = Math.max(1, Math.ceil(durationMin / SLOT_INTERVAL_MIN));
+    const span = Math.max(1, Math.min(rawSpan, totalRows - startRow));
+    return { startRow, span };
+  }
+
   const reservationCells: Array<GridCell & { r: ShopReservation }> = items.map(
     (r) => ({ r, ...positionFor(parseHHmm(r.reservationTime), r.durationMinutes) }),
   );
@@ -144,6 +191,97 @@ function DayGrid({
         }
       : null;
 
+  return (
+    <div
+      className="grid overflow-hidden rounded-xl border border-line"
+      style={{
+        gridTemplateColumns: "64px 1fr",
+        gridAutoRows: "minmax(56px, auto)",
+      }}
+    >
+      {slotMinutes.map((slot, i) => (
+        <Fragment key={slot}>
+          <div
+            className={cn(
+              "px-3 pt-2 text-xs tabular-nums text-muted",
+              i > 0 && "border-t border-line",
+            )}
+            style={{ gridColumn: 1, gridRow: i + 1 }}
+          >
+            {toHHmm(slot)}
+          </div>
+          <div
+            className={cn(i > 0 && "border-t border-line")}
+            style={{ gridColumn: 2, gridRow: i + 1 }}
+            aria-hidden
+          />
+        </Fragment>
+      ))}
+
+      {breakCell && (
+        <div
+          className="z-0 m-1.5 flex items-center justify-center gap-1.5 rounded-lg bg-neutral-100 text-xs text-muted"
+          style={{
+            gridColumn: 2,
+            gridRow: `${breakCell.startRow + 1} / span ${breakCell.span}`,
+          }}
+        >
+          <Coffee size={13} />
+          <span>
+            휴게 · {toHHmm(breakCell.startMin)}–{toHHmm(breakCell.endMin)}
+          </span>
+        </div>
+      )}
+
+      {reservationCells.map(({ r, startRow, span }) => (
+        <div
+          key={r.id}
+          className="z-10 p-1.5"
+          style={{
+            gridColumn: 2,
+            gridRow: `${startRow + 1} / span ${span}`,
+          }}
+        >
+          <ReservationCard r={r} onOpen={onOpen} fill />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  PC: weekly view                                                           */
+/* -------------------------------------------------------------------------- */
+
+function WeekView({
+  reservations,
+  shopHours,
+  onOpen,
+}: {
+  reservations: ShopReservation[];
+  shopHours: ShopHours;
+  onOpen: (r: ShopReservation) => void;
+}) {
+  const today = todayKST();
+  const todayWeekStart = startOfWeekKST(today);
+  const [weekStart, setWeekStart] = useState<string>(todayWeekStart);
+
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const date = shiftDate(weekStart, i);
+    const weekday = weekdayOf(date); // 0..6 (Sun..Sat)
+    return { date, weekday };
+  });
+
+  const openMin = parseHHmm(shopHours.open);
+  const closeMin = parseHHmm(shopHours.close);
+  const breakStart = shopHours.breakStart ? parseHHmm(shopHours.breakStart) : null;
+  const breakEnd = shopHours.breakEnd ? parseHHmm(shopHours.breakEnd) : null;
+  const closedSet = new Set(shopHours.closedWeekdays ?? []);
+
+  const slotMinutes: number[] = [];
+  for (let s = openMin; s < closeMin; s += SLOT_INTERVAL_MIN) slotMinutes.push(s);
+  const totalRows = slotMinutes.length;
+
   function positionFor(startMin: number, durationMin: number): GridCell {
     const snapped = Math.floor(startMin / SLOT_INTERVAL_MIN) * SLOT_INTERVAL_MIN;
     const startRow = Math.max(
@@ -155,70 +293,168 @@ function DayGrid({
     return { startRow, span };
   }
 
+  // Pre-bucket reservations by date to avoid scanning the full list per column.
+  const byDate = new Map<string, ShopReservation[]>();
+  for (const r of reservations) {
+    const arr = byDate.get(r.reservationDate);
+    if (arr) arr.push(r);
+    else byDate.set(r.reservationDate, [r]);
+  }
+
+  const canGoBack = weekStart > todayWeekStart;
+  const breakCell =
+    breakStart !== null && breakEnd !== null && breakEnd > breakStart
+      ? { ...positionFor(breakStart, breakEnd - breakStart), startMin: breakStart, endMin: breakEnd }
+      : null;
+
+  // Grid rows: row 1 = day header (sticky); rows 2..N+1 = time slots.
+  const HEADER_ROW = 1;
+  const slotRow = (i: number) => i + 2;
+
   return (
-    <div
-      className="grid overflow-hidden rounded-xl border border-line"
-      style={{
-        gridTemplateColumns: "64px 1fr",
-        // Each 30-min slot is at least 56px tall; rows expand to fit a
-        // card that needs more height (e.g. a pending 30-min booking).
-        gridAutoRows: "minmax(56px, auto)",
-      }}
-    >
-        {/* Background layer: time labels in column 1, empty cells +
-            row dividers in column 2. Reservations and break overlay this. */}
-        {slotMinutes.map((slot, i) => (
-          <Fragment key={slot}>
-            <div
-              className={cn(
-                "px-3 pt-2 text-xs tabular-nums text-muted",
-                i > 0 && "border-t border-line",
-              )}
-              style={{ gridColumn: 1, gridRow: i + 1 }}
-            >
-              {toHHmm(slot)}
-            </div>
-            <div
-              className={cn(i > 0 && "border-t border-line")}
-              style={{ gridColumn: 2, gridRow: i + 1 }}
-              aria-hidden
-            />
-          </Fragment>
-        ))}
-
-        {/* Break window — drawn under reservations so a same-time booking
-            (shouldn't happen, but if it does) visually wins. */}
-        {breakCell && (
-          <div
-            className="z-0 m-1.5 flex items-center justify-center gap-1.5 rounded-lg bg-neutral-100 text-xs text-muted"
-            style={{
-              gridColumn: 2,
-              gridRow: `${breakCell.startRow + 1} / span ${breakCell.span}`,
-            }}
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => canGoBack && setWeekStart(shiftDate(weekStart, -7))}
+            disabled={!canGoBack}
+            aria-label="이전 주"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-muted transition hover:bg-neutral-100 disabled:opacity-30 disabled:hover:bg-transparent"
           >
-            <Coffee size={13} />
-            <span>
-              휴게 · {toHHmm(breakCell.startMin)}–{toHHmm(breakCell.endMin)}
-            </span>
-          </div>
+            <ChevronLeft size={18} />
+          </button>
+          <h3 className="text-sm font-medium tabular-nums">
+            {formatRangeHeader(days[0].date, days[6].date)}
+          </h3>
+          <button
+            type="button"
+            onClick={() => setWeekStart(shiftDate(weekStart, 7))}
+            aria-label="다음 주"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-muted transition hover:bg-neutral-100"
+          >
+            <ChevronRight size={18} />
+          </button>
+        </div>
+        {!canGoBack && (
+          <span className="text-xs text-muted">이번 주는 지난 일정을 표시하지 않아요.</span>
         )}
+      </div>
 
-        {/* Reservation cards as overlays — span the full duration. */}
-        {reservationCells.map(({ r, startRow, span }) => (
+      <div className="overflow-hidden rounded-xl border border-line bg-white">
+        <div
+          className="grid"
+          style={{
+            gridTemplateColumns: "64px repeat(7, minmax(0, 1fr))",
+            gridAutoRows: "minmax(48px, auto)",
+          }}
+        >
+          {/* Sticky day-header row */}
           <div
-            key={r.id}
-            className="z-10 p-1.5"
-            style={{
-              gridColumn: 2,
-              gridRow: `${startRow + 1} / span ${span}`,
-            }}
-          >
-            <ReservationCard r={r} onOpen={onOpen} fill />
-          </div>
-        ))}
+            className="sticky top-0 z-20 border-b border-line bg-white"
+            style={{ gridColumn: 1, gridRow: HEADER_ROW }}
+            aria-hidden
+          />
+          {days.map((d, i) => {
+            const closed = closedSet.has(d.weekday);
+            const isToday = d.date === today;
+            return (
+              <div
+                key={d.date}
+                className={cn(
+                  "sticky top-0 z-20 border-b border-l border-line px-2 py-2 text-center",
+                  closed && "bg-neutral-50 text-muted",
+                  !closed && "bg-white",
+                )}
+                style={{ gridColumn: i + 2, gridRow: HEADER_ROW }}
+              >
+                <div className="text-[10px] uppercase tracking-wide text-muted">
+                  {KOREAN_WEEKDAYS[d.weekday]}
+                </div>
+                <div
+                  className={cn(
+                    "mt-0.5 text-sm font-medium tabular-nums",
+                    isToday && "inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-ink px-1.5 text-white",
+                  )}
+                >
+                  {Number(d.date.slice(8))}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Slot rows: time label + 7 day cells */}
+          {slotMinutes.map((slot, i) => (
+            <Fragment key={slot}>
+              <div
+                className="border-t border-line px-3 pt-1.5 text-[11px] tabular-nums text-muted"
+                style={{ gridColumn: 1, gridRow: slotRow(i) }}
+              >
+                {toHHmm(slot)}
+              </div>
+              {days.map((d, dayIdx) => (
+                <div
+                  key={d.date}
+                  className={cn(
+                    "border-l border-t border-line",
+                    closedSet.has(d.weekday) && "bg-neutral-50",
+                  )}
+                  style={{ gridColumn: dayIdx + 2, gridRow: slotRow(i) }}
+                  aria-hidden
+                />
+              ))}
+            </Fragment>
+          ))}
+
+          {/* Break overlay — once per non-closed day */}
+          {breakCell &&
+            days.map((d, dayIdx) => {
+              if (closedSet.has(d.weekday)) return null;
+              return (
+                <div
+                  key={`break-${d.date}`}
+                  className="z-0 m-0.5 flex items-center justify-center rounded bg-neutral-100 text-[10px] text-muted"
+                  style={{
+                    gridColumn: dayIdx + 2,
+                    gridRow: `${slotRow(breakCell.startRow)} / span ${breakCell.span}`,
+                  }}
+                >
+                  <Coffee size={11} />
+                </div>
+              );
+            })}
+
+          {/* Reservation overlays */}
+          {days.flatMap((d, dayIdx) => {
+            const items = byDate.get(d.date) ?? [];
+            return items.map((r) => {
+              const { startRow, span } = positionFor(
+                parseHHmm(r.reservationTime),
+                r.durationMinutes,
+              );
+              return (
+                <div
+                  key={r.id}
+                  className="z-10 p-0.5"
+                  style={{
+                    gridColumn: dayIdx + 2,
+                    gridRow: `${slotRow(startRow)} / span ${span}`,
+                  }}
+                >
+                  <WeekReservationCard r={r} onOpen={onOpen} />
+                </div>
+              );
+            });
+          })}
+        </div>
+      </div>
     </div>
   );
 }
+
+/* -------------------------------------------------------------------------- */
+/*  Cards + modal (shared)                                                    */
+/* -------------------------------------------------------------------------- */
 
 function ReservationCard({
   r,
@@ -235,7 +471,7 @@ function ReservationCard({
   const [error, setError] = useState<string | null>(null);
 
   function handle(action: "accept" | "reject", e: React.MouseEvent) {
-    e.stopPropagation(); // don't open the modal when clicking 수락/거절
+    e.stopPropagation();
     setError(null);
     startTransition(async () => {
       const result =
@@ -306,6 +542,48 @@ function ReservationCard({
   );
 }
 
+/**
+ * Compact card used in the weekly grid where each cell is much narrower.
+ * Drops the duration badge and the inline accept/reject — clicking opens the
+ * detail modal where the same actions live.
+ */
+function WeekReservationCard({
+  r,
+  onOpen,
+}: {
+  r: ShopReservation;
+  onOpen: (r: ShopReservation) => void;
+}) {
+  const isPendingStatus = r.status === "pending";
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(r)}
+      className={cn(
+        "flex h-full w-full flex-col items-stretch overflow-hidden rounded border px-1.5 py-1 text-left transition",
+        isPendingStatus
+          ? "border-amber-300 bg-amber-50 hover:bg-amber-100"
+          : "border-line bg-white hover:bg-neutral-50",
+      )}
+    >
+      <div className="flex items-center gap-1">
+        {isPendingStatus && (
+          <span className="rounded-full bg-amber-200 px-1 text-[9px] font-medium text-amber-900">
+            요청
+          </span>
+        )}
+        <span className="text-[10px] tabular-nums text-muted">
+          {r.reservationTime}
+        </span>
+      </div>
+      <span className="truncate text-xs font-medium">{r.customerName}</span>
+      <span className="truncate text-[10px] text-muted">
+        {r.serviceCategoryName || r.artName}
+      </span>
+    </button>
+  );
+}
+
 function ReservationDetailModal({
   reservation: r,
   onClose,
@@ -313,6 +591,9 @@ function ReservationDetailModal({
   reservation: ShopReservation;
   onClose: () => void;
 }) {
+  const [isPending, startTransition] = useTransition();
+  const [actionError, setActionError] = useState<string | null>(null);
+
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -320,6 +601,21 @@ function ReservationDetailModal({
       document.body.style.overflow = prev;
     };
   }, []);
+
+  function handle(action: "accept" | "reject") {
+    setActionError(null);
+    startTransition(async () => {
+      const result =
+        action === "accept"
+          ? await acceptReservation(r.id)
+          : await rejectReservation(r.id);
+      if (!result.ok) {
+        setActionError(result.error);
+        return;
+      }
+      onClose();
+    });
+  }
 
   return (
     <div
@@ -419,6 +715,32 @@ function ReservationDetailModal({
               </p>
             </section>
           )}
+
+          {r.status === "pending" && (
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => handle("reject")}
+                disabled={isPending}
+                className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-line bg-white px-3 py-2.5 text-sm font-medium text-ink transition hover:bg-neutral-50 disabled:opacity-50"
+              >
+                <X size={14} />
+                거절
+              </button>
+              <button
+                type="button"
+                onClick={() => handle("accept")}
+                disabled={isPending}
+                className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-ink px-3 py-2.5 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+              >
+                <Check size={14} />
+                수락
+              </button>
+            </div>
+          )}
+          {actionError && (
+            <p className="text-center text-xs text-accent">{actionError}</p>
+          )}
         </div>
       </div>
     </div>
@@ -456,13 +778,19 @@ function formatDateHeader(ymd: string): string {
   return `${m}월 ${d}일 (${weekday})`;
 }
 
+/** "2026-04-26" + "2026-05-02" → "4월 26일 — 5월 2일". */
+function formatRangeHeader(startYmd: string, endYmd: string): string {
+  const [, sm, sd] = startYmd.split("-").map(Number);
+  const [, em, ed] = endYmd.split("-").map(Number);
+  if (sm === em) return `${sm}월 ${sd}일 – ${ed}일`;
+  return `${sm}월 ${sd}일 – ${em}월 ${ed}일`;
+}
+
 /** Today as YYYY-MM-DD in Asia/Seoul. */
 function todayKST(): string {
   return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
 }
 
-/** Step a YYYY-MM-DD by N days. UTC noon avoids DST drift; we only care
- *  about the calendar Y-M-D. */
 function shiftDate(ymd: string, deltaDays: number): string {
   const [y, m, d] = ymd.split("-").map(Number);
   const dt = new Date(Date.UTC(y, m - 1, d, 12));
@@ -471,6 +799,17 @@ function shiftDate(ymd: string, deltaDays: number): string {
   const mm = String(dt.getUTCMonth() + 1).padStart(2, "0");
   const dd = String(dt.getUTCDate()).padStart(2, "0");
   return `${yy}-${mm}-${dd}`;
+}
+
+/** 0 = Sunday … 6 = Saturday for the given KST YYYY-MM-DD. */
+function weekdayOf(ymd: string): number {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d, 12)).getUTCDay();
+}
+
+/** Sunday-aligned week start for the given KST YYYY-MM-DD. */
+function startOfWeekKST(ymd: string): string {
+  return shiftDate(ymd, -weekdayOf(ymd));
 }
 
 function formatPhone(digits: string): string {

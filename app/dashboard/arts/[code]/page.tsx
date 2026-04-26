@@ -67,12 +67,12 @@ export default async function EditArtPage({ params }: Params) {
     <main className="min-h-dvh px-6 pt-12 pb-16">
       <Link
         href="/dashboard/arts"
-        className="-ml-1 inline-flex items-center gap-1 text-sm text-muted hover:text-ink"
+        className="-ml-1 inline-flex items-center gap-1 text-sm text-muted hover:text-ink lg:hidden"
       >
         <ChevronLeft size={16} />
         아트 관리
       </Link>
-      <header className="mt-6">
+      <header className="mt-6 lg:mt-0">
         <h1 className="text-2xl font-semibold tracking-tight">아트 수정</h1>
         <p className="mt-1 text-sm text-muted">{art.name}</p>
       </header>
