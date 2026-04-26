@@ -52,9 +52,12 @@ export default async function DashboardPage() {
               >
                 공개 페이지 보기
               </Link>
-              <DisabledButton hint="Step 6에서 구현됩니다">
+              <Link
+                href="/dashboard/shop"
+                className="rounded-full border border-line px-4 py-1.5 text-sm hover:bg-neutral-50"
+              >
                 샵 정보 수정
-              </DisabledButton>
+              </Link>
               <Link
                 href="/dashboard/reservations"
                 className="rounded-full border border-line px-4 py-1.5 text-sm hover:bg-neutral-50"
@@ -66,12 +69,12 @@ export default async function DashboardPage() {
         ) : (
           <div className="mt-3 rounded-xl border border-dashed border-line p-6 text-center">
             <p className="text-sm text-muted">아직 등록한 샵이 없어요.</p>
-            <DisabledButton
-              hint="Step 6에서 구현됩니다"
-              className="mt-3"
+            <Link
+              href="/dashboard/shop"
+              className="mt-3 inline-block rounded-full border border-line px-4 py-1.5 text-sm hover:bg-neutral-50"
             >
               샵 만들기
-            </DisabledButton>
+            </Link>
           </div>
         )}
       </section>
@@ -102,27 +105,6 @@ function Row({ term, value }: { term: string; value: string }) {
       <dt className="text-muted">{term}</dt>
       <dd>{value}</dd>
     </div>
-  );
-}
-
-function DisabledButton({
-  children,
-  hint,
-  className,
-}: {
-  children: React.ReactNode;
-  hint: string;
-  className?: string;
-}) {
-  return (
-    <button
-      type="button"
-      disabled
-      title={hint}
-      className={`cursor-not-allowed rounded-full border border-line px-4 py-1.5 text-sm text-muted ${className ?? ""}`}
-    >
-      {children}
-    </button>
   );
 }
 
