@@ -11,7 +11,7 @@ export default async function DashboardPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("nickname, phone, depositor_name, onboarded_at")
+    .select("nickname, phone, onboarded_at")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -22,7 +22,6 @@ export default async function DashboardPage() {
   const p = profile as {
     nickname: string;
     phone: string;
-    depositor_name: string;
   };
 
   // Look up this user's shop (UNIQUE(owner_id) means at most one).
@@ -82,7 +81,6 @@ export default async function DashboardPage() {
         <dl className="mt-3 space-y-2 text-sm">
           <Row term="이메일" value={user.email ?? "—"} />
           <Row term="전화번호" value={formatPhone(p.phone)} />
-          <Row term="입금자명" value={p.depositor_name} />
         </dl>
 
         <form action="/auth/signout" method="POST" className="mt-8">

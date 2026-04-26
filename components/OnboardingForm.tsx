@@ -8,18 +8,20 @@ import { StickyCTA } from "./StickyCTA";
 interface OnboardingFormProps {
   initialNickname: string;
   initialPhone: string;
-  initialDepositorName: string;
 }
 
 /**
- * Collects the profile fields the schema needs before the user can do
- * anything else (booking / shop creation / reviews). Saves to `profiles`
- * and stamps `onboarded_at = now()`. See database-schema.md §10.5.
+ * Shop-owner onboarding: collects the profile fields needed before the
+ * dashboard is usable (nickname for greetings, phone for Kakao Channel
+ * notifications). Saves to `profiles` and stamps `onboarded_at = now()`.
+ * See database-schema.md §10.5.
+ *
+ * `profiles.depositor_name` is the *customer's* bank-statement name and
+ * is captured per-reservation. The web shop owner never enters one.
  */
 export function OnboardingForm({
   initialNickname,
   initialPhone,
-  initialDepositorName,
 }: OnboardingFormProps) {
   const router = useRouter();
   const supabase = createClient();
@@ -28,7 +30,6 @@ export function OnboardingForm({
   // Phone is stored normalized (010xxxxxxxx, no dashes) but displayed with
   // dashes for readability.
   const [phoneDisplay, setPhoneDisplay] = useState(formatPhone(initialPhone));
-  const [depositorName, setDepositorName] = useState(initialDepositorName);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,7 +39,6 @@ export function OnboardingForm({
   const missing: string[] = [];
   if (!nickname.trim()) missing.push("닉네임");
   if (!phoneValid) missing.push("전화번호");
-  if (!depositorName.trim()) missing.push("입금자명");
   const isValid = missing.length === 0;
 
   async function handleSubmit(e: React.FormEvent) {
@@ -61,7 +61,6 @@ export function OnboardingForm({
       .update({
         nickname: nickname.trim(),
         phone: phoneDigits,
-        depositor_name: depositorName.trim(),
         onboarded_at: new Date().toISOString(),
       })
       .eq("id", user.id);
@@ -112,21 +111,6 @@ export function OnboardingForm({
             />
             <p className="mt-1 text-xs text-muted">
               카카오톡 채널을 통해 예약 알림을 받습니다.
-            </p>
-          </Field>
-
-          <Field label="입금자명" required>
-            <input
-              type="text"
-              value={depositorName}
-              onChange={(e) => setDepositorName(e.target.value)}
-              maxLength={30}
-              className="mt-2 block w-full rounded-xl bg-neutral-100 px-3 py-3 text-base outline-none transition focus:bg-neutral-200"
-              placeholder="예금주명과 동일하게"
-              required
-            />
-            <p className="mt-1 text-xs text-muted">
-              예약금 입금 내역과 매칭하기 위해 사용됩니다.
             </p>
           </Field>
         </div>
