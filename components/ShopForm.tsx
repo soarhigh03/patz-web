@@ -2,9 +2,14 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { ImageUpload } from "./ImageUpload";
 import { StickyCTA } from "./StickyCTA";
 import { cn } from "@/lib/utils";
-import { saveShop, type SaveShopInput } from "@/app/dashboard/shop/actions";
+import {
+  saveShop,
+  updateShopImage,
+  type SaveShopInput,
+} from "@/app/dashboard/shop/actions";
 
 export interface ShopFormInitial extends SaveShopInput {}
 
@@ -12,6 +17,11 @@ interface ShopFormProps {
   /** Pre-filled values; for create mode pass empty defaults. */
   initial: ShopFormInitial;
   mode: "create" | "edit";
+  /** Required in edit mode for image upload paths. Omit in create mode —
+   *  images are uploaded after the shop exists, in a follow-up edit. */
+  shopId?: string;
+  profileImageUrl?: string;
+  backgroundImageUrl?: string;
 }
 
 const KOREAN_WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -20,7 +30,13 @@ const KOREAN_WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
  * Single form for both create and edit. Sections are visual only — they all
  * submit together via the saveShop action.
  */
-export function ShopForm({ initial, mode }: ShopFormProps) {
+export function ShopForm({
+  initial,
+  mode,
+  shopId,
+  profileImageUrl,
+  backgroundImageUrl,
+}: ShopFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -132,6 +148,37 @@ export function ShopForm({ initial, mode }: ShopFormProps) {
   return (
     <form onSubmit={handleSubmit} noValidate className="pb-2">
       <div className="space-y-10 pt-8">
+        {mode === "edit" && shopId && (
+          <Section title="이미지">
+            <ImageUpload
+              label="배경"
+              pathPrefix={shopId}
+              filenameBase="background"
+              aspect="wide"
+              currentUrl={backgroundImageUrl}
+              hint="공개 페이지 상단에 표시돼요."
+              onUploaded={async (path) => {
+                const result = await updateShopImage("background", path);
+                if (!result.ok) throw new Error(result.error);
+                router.refresh();
+              }}
+            />
+            <ImageUpload
+              label="프로필"
+              pathPrefix={shopId}
+              filenameBase="profile"
+              aspect="square"
+              currentUrl={profileImageUrl}
+              hint="샵 카드 / 채팅 등에 표시돼요."
+              onUploaded={async (path) => {
+                const result = await updateShopImage("profile", path);
+                if (!result.ok) throw new Error(result.error);
+                router.refresh();
+              }}
+            />
+          </Section>
+        )}
+
         <Section title="기본 정보">
           <Field label="샵 URL" required>
             <div className="mt-2 flex items-center gap-1.5 rounded-xl bg-neutral-100 px-3 transition focus-within:bg-neutral-200">

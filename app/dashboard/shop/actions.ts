@@ -129,6 +129,46 @@ function nullable(v: string | null): string | null {
   return trimmed === "" ? null : trimmed;
 }
 
+/**
+ * Persist the path of an uploaded shop profile / background image to the
+ * `shops` row. The image itself is uploaded client-side directly to
+ * Storage; this action only records where it landed.
+ */
+export async function updateShopImage(
+  field: "profile" | "background",
+  path: string | null,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "로그인이 필요해요." };
+
+  const column =
+    field === "profile" ? "profile_image_path" : "background_image_path";
+
+  // Look up the handle so we can revalidate the public shop page.
+  const { data: shopRow } = await supabase
+    .from("shops")
+    .select("id, handle")
+    .eq("owner_id", user.id)
+    .maybeSingle();
+  const shop = shopRow as { id: string; handle: string } | null;
+  if (!shop) return { ok: false, error: "샵을 찾을 수 없어요." };
+
+  const { error } = await supabase
+    .from("shops")
+    .update({ [column]: path })
+    .eq("id", shop.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/dashboard/shop");
+  revalidatePath("/dashboard");
+  revalidatePath(`/shops/${shop.handle}`);
+  return { ok: true };
+}
+
 /** Surface DB constraint errors as plain Korean. */
 function friendlyHandleError(msg: string): string {
   if (msg.includes("shops_handle_key")) {

@@ -1,0 +1,247 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { ImageUpload } from "./ImageUpload";
+import { StickyCTA } from "./StickyCTA";
+import { cn } from "@/lib/utils";
+import { saveArt, archiveArt } from "@/app/dashboard/arts/actions";
+
+export interface ArtFormInitial {
+  /** Existing row id, or a fresh client-generated UUID for new arts. */
+  id: string;
+  code: string;
+  name: string;
+  price: number;
+  serviceCategoryCode: string;
+  imagePath: string | null;
+  imageUrl?: string;
+  isThisMonth: boolean;
+}
+
+interface ArtFormProps {
+  initial: ArtFormInitial;
+  mode: "create" | "edit";
+  shopId: string;
+  /** Categories the user can pick from. Comes from service_categories. */
+  categories: Array<{ code: string; name: string }>;
+}
+
+export function ArtForm({ initial, mode, shopId, categories }: ArtFormProps) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  const [code, setCode] = useState(initial.code);
+  const [name, setName] = useState(initial.name);
+  const [price, setPrice] = useState(
+    initial.price > 0 ? String(initial.price) : "",
+  );
+  const [categoryCode, setCategoryCode] = useState(
+    initial.serviceCategoryCode || categories[0]?.code || "",
+  );
+  const [imagePath, setImagePath] = useState<string | null>(initial.imagePath);
+  const [isThisMonth, setIsThisMonth] = useState(initial.isThisMonth);
+
+  // The image is uploaded to a path that embeds the row id, so it lands
+  // on the right URL even before INSERT lands.
+  const codeValid = /^[a-zA-Z0-9_-]+$/.test(code) && code !== "new";
+  const priceValid = price.trim() !== "" && Number(price) >= 0;
+  const isValid =
+    codeValid && priceValid && name.trim().length > 0 && categoryCode !== "";
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!isValid || isPending) return;
+    setError(null);
+
+    startTransition(async () => {
+      const result = await saveArt({
+        id: initial.id,
+        code: code.trim(),
+        serviceCategoryCode: categoryCode,
+        name: name.trim(),
+        price: Math.floor(Number(price)),
+        imagePath,
+        isThisMonth,
+      });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      router.push("/dashboard/arts");
+      router.refresh();
+    });
+  }
+
+  function handleArchive() {
+    if (!confirm("이 아트를 보관 처리할까요? 공개 페이지에서 사라집니다.")) return;
+    startTransition(async () => {
+      const result = await archiveArt(initial.id);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      router.push("/dashboard/arts");
+      router.refresh();
+    });
+  }
+
+  return (
+    <form onSubmit={handleSubmit} noValidate className="pb-2">
+      <div className="space-y-7 pt-8">
+        <ImageUpload
+          label="아트 사진"
+          pathPrefix={`${shopId}/arts`}
+          filenameBase={initial.id}
+          aspect="square"
+          currentUrl={initial.imageUrl}
+          hint="JPEG / PNG / WEBP, 5MB 이하."
+          onUploaded={(path) => setImagePath(path)}
+        />
+
+        <Field label="카테고리" required>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {categories.map((c) => (
+              <Chip
+                key={c.code}
+                selected={categoryCode === c.code}
+                onClick={() => setCategoryCode(c.code)}
+              >
+                {c.name}
+              </Chip>
+            ))}
+          </div>
+        </Field>
+
+        <Field label="아트 코드 (URL)" required>
+          <div className="mt-2 flex items-center gap-1.5 rounded-xl bg-neutral-100 px-3 transition focus-within:bg-neutral-200">
+            <span className="shrink-0 whitespace-nowrap text-sm text-muted">
+              …/{categoryCode}/
+            </span>
+            <input
+              type="text"
+              value={code}
+              onChange={(e) =>
+                setCode(e.target.value.replace(/[^a-zA-Z0-9_-]/g, ""))
+              }
+              maxLength={40}
+              autoCapitalize="none"
+              autoComplete="off"
+              placeholder="feb-1"
+              className="block w-full bg-transparent py-3 text-base outline-none"
+              required
+            />
+          </div>
+          <p className="mt-1 text-xs text-muted">
+            샵 안에서 고유해야 해요. 영문 / 숫자 / 하이픈 / 언더스코어.
+          </p>
+        </Field>
+
+        <Field label="이름" required>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={60}
+            placeholder="이달의 아트 1"
+            className="mt-2 block w-full rounded-xl bg-neutral-100 px-3 py-3 text-base outline-none transition focus:bg-neutral-200"
+            required
+          />
+        </Field>
+
+        <Field label="가격 (원)" required>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={price}
+            onChange={(e) => setPrice(e.target.value.replace(/[^\d]/g, ""))}
+            placeholder="65000"
+            className="mt-2 block w-full rounded-xl bg-neutral-100 px-3 py-3 text-base outline-none transition focus:bg-neutral-200"
+            required
+          />
+        </Field>
+
+        <label className="flex cursor-pointer items-center gap-2.5">
+          <input
+            type="checkbox"
+            checked={isThisMonth}
+            onChange={(e) => setIsThisMonth(e.target.checked)}
+            className="h-5 w-5 rounded border-line accent-ink"
+          />
+          <span className="text-sm font-medium">이달의 아트</span>
+        </label>
+      </div>
+
+      {error && (
+        <p className="px-6 pt-4 text-center text-xs text-accent">{error}</p>
+      )}
+
+      <StickyCTA sticky={false} disabled={!isValid || isPending}>
+        {isPending
+          ? "저장 중…"
+          : mode === "create"
+            ? "아트 추가"
+            : "변경사항 저장"}
+      </StickyCTA>
+
+      {mode === "edit" && (
+        <div className="px-6 pt-2 text-center">
+          <button
+            type="button"
+            onClick={handleArchive}
+            disabled={isPending}
+            className="text-xs text-muted underline hover:text-accent disabled:opacity-50"
+          >
+            아트 보관 처리
+          </button>
+        </div>
+      )}
+    </form>
+  );
+}
+
+function Field({
+  label,
+  required,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="block text-sm font-medium">
+        {label}
+        {required && <span className="ml-0.5 text-accent">*</span>}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+function Chip({
+  children,
+  selected,
+  onClick,
+}: {
+  children: React.ReactNode;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "rounded-full border px-4 py-1.5 text-sm transition",
+        selected
+          ? "border-ink bg-ink text-white"
+          : "border-line bg-white text-ink hover:bg-neutral-50",
+      )}
+    >
+      {children}
+    </button>
+  );
+}

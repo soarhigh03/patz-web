@@ -25,15 +25,18 @@ export default async function ShopFormPage() {
   const { data: shopRow } = await supabase
     .from("shops")
     .select(
-      "id, handle, name, phone, address, latitude, longitude, hours_open, hours_close, hours_break_start, hours_break_end, closed_weekdays, hours_note, caution_note, parking_info, map_badge, account_bank, account_number, deposit_amount",
+      "id, handle, name, phone, address, latitude, longitude, hours_open, hours_close, hours_break_start, hours_break_end, closed_weekdays, hours_note, caution_note, parking_info, map_badge, account_bank, account_number, deposit_amount, profile_image_path, background_image_path",
     )
     .eq("owner_id", user.id)
     .maybeSingle();
 
   const mode: "create" | "edit" = shopRow ? "edit" : "create";
-  const initial = shopRow
-    ? rowToInitial(shopRow as unknown as ShopRow)
-    : EMPTY_INITIAL;
+  const row = shopRow as unknown as ShopRow | null;
+  const initial = row ? rowToInitial(row) : EMPTY_INITIAL;
+  const profileImageUrl = row ? storageUrl(row.profile_image_path) : undefined;
+  const backgroundImageUrl = row
+    ? storageUrl(row.background_image_path)
+    : undefined;
 
   return (
     <main className="min-h-dvh px-6 pt-12 pb-16">
@@ -54,9 +57,20 @@ export default async function ShopFormPage() {
             : "변경 후 ‘저장’을 눌러야 적용돼요."}
         </p>
       </header>
-      <ShopForm initial={initial} mode={mode} />
+      <ShopForm
+        initial={initial}
+        mode={mode}
+        shopId={row?.id}
+        profileImageUrl={profileImageUrl}
+        backgroundImageUrl={backgroundImageUrl}
+      />
     </main>
   );
+}
+
+function storageUrl(path: string | null): string | undefined {
+  if (!path) return undefined;
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/shop-assets/${path}`;
 }
 
 interface ShopRow {
@@ -79,6 +93,8 @@ interface ShopRow {
   account_bank: string | null;
   account_number: string | null;
   deposit_amount: number | null;
+  profile_image_path: string | null;
+  background_image_path: string | null;
 }
 
 function rowToInitial(r: ShopRow): ShopFormInitial {

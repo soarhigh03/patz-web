@@ -59,6 +59,12 @@ export default async function DashboardPage() {
                 샵 정보 수정
               </Link>
               <Link
+                href="/dashboard/arts"
+                className="rounded-full border border-line px-4 py-1.5 text-sm hover:bg-neutral-50"
+              >
+                아트 관리
+              </Link>
+              <Link
                 href="/dashboard/reservations"
                 className="rounded-full border border-line px-4 py-1.5 text-sm hover:bg-neutral-50"
               >
