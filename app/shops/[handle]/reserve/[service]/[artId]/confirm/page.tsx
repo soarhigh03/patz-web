@@ -10,11 +10,13 @@ interface Params {
 export default async function ConfirmationPage({ params }: Params) {
   const { handle, service, artId } = await params;
 
-  const shop = await getShopByHandle(handle);
+  const [shop, art] = await Promise.all([
+    getShopByHandle(handle),
+    getArt(handle, artId),
+  ]);
+
   if (!shop) notFound();
   if (!shop.serviceCategories.some((c) => c.code === service)) notFound();
-
-  const art = await getArt(handle, artId);
   if (!art || art.service !== service) notFound();
 
   return (

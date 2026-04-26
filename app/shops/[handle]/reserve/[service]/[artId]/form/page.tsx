@@ -14,17 +14,18 @@ interface Params {
 export default async function ReservationFormPage({ params }: Params) {
   const { handle, service, artId } = await params;
 
-  const shop = await getShopByHandle(handle);
-  if (!shop) notFound();
-  if (!shop.serviceCategories.some((c) => c.code === service)) notFound();
-
-  const art = await getArt(handle, artId);
-  if (!art || art.service !== service) notFound();
-
-  const [staff, availableTimes] = await Promise.all([
+  // All four fetches run in parallel. getShopByHandle is React.cache()-wrapped
+  // so the shop_id lookup inside listStaff/getArt deduplicates with this one.
+  const [shop, art, staff, availableTimes] = await Promise.all([
+    getShopByHandle(handle),
+    getArt(handle, artId),
     listStaff(handle),
     listAvailableTimes(handle),
   ]);
+
+  if (!shop) notFound();
+  if (!shop.serviceCategories.some((c) => c.code === service)) notFound();
+  if (!art || art.service !== service) notFound();
 
   return (
     <main className="min-h-dvh">

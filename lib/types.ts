@@ -100,6 +100,43 @@ export interface StaffSeed {
   name: string;
 }
 
+/* -------------------------------------------------------------------------- */
+/*  Shop dashboard                                                            */
+/* -------------------------------------------------------------------------- */
+
+/** Flattened shape used by the shop owner's reservation timetable. Joins the
+ *  raw reservation row with the related art / service category / staff so the
+ *  client component can render rows + the detail modal without extra fetches. */
+export interface ShopReservation {
+  id: string;
+  /** YYYY-MM-DD (Asia/Seoul). */
+  reservationDate: string;
+  /** HH:mm. */
+  reservationTime: string;
+  durationMinutes: number;
+
+  customerName: string;
+  /** 010xxxxxxxx — formatter belongs to the renderer. */
+  customerPhone: string;
+  depositorName: string | null;
+
+  artName: string;
+  artImageUrl?: string;
+  serviceCategoryCode: string;
+  serviceCategoryName: string;
+  /** null = "상관없음" at booking time, OR specific staff was archived. */
+  staffName: string | null;
+
+  totalPrice: number;
+  depositAmount: number;
+  depositPaidAt: string | null;
+
+  gelSelfRemoval: boolean;
+  gelOtherRemoval: boolean;
+  extensionCount: number;
+  notes: string | null;
+}
+
 /** What each `public/mockups/<handle>/mockup.ts` must export. */
 export interface ShopMockup {
   shop: ShopSeed;

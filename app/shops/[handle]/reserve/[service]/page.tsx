@@ -10,13 +10,13 @@ interface Params {
 export default async function ArtFeedPage({ params }: Params) {
   const { handle, service } = await params;
 
-  const shop = await getShopByHandle(handle);
+  const [shop, arts] = await Promise.all([
+    getShopByHandle(handle),
+    listArts(handle, service),
+  ]);
+
   if (!shop) notFound();
-
-  // Service code must be one of the shop's enabled categories
   if (!shop.serviceCategories.some((c) => c.code === service)) notFound();
-
-  const arts = await listArts(handle, service);
 
   return (
     <main className="min-h-dvh px-4 pt-20 pb-10">

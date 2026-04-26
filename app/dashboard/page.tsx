@@ -56,9 +56,12 @@ export default async function DashboardPage() {
               <DisabledButton hint="Step 6에서 구현됩니다">
                 샵 정보 수정
               </DisabledButton>
-              <DisabledButton hint="Step 6에서 구현됩니다">
+              <Link
+                href="/dashboard/reservations"
+                className="rounded-full border border-line px-4 py-1.5 text-sm hover:bg-neutral-50"
+              >
                 예약 관리
-              </DisabledButton>
+              </Link>
             </div>
           </div>
         ) : (

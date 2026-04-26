@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { createClient } from "./supabase/server";
 import { resolveMockAsset } from "./mockAssets";
 import {
@@ -9,7 +10,13 @@ import {
   getMockStaff,
   getMockAvailableTimes,
 } from "./mockData";
-import type { Art, Shop, StaffSeed, ServiceCategory } from "./types";
+import type {
+  Art,
+  Shop,
+  StaffSeed,
+  ServiceCategory,
+  ShopReservation,
+} from "./types";
 import type { Database } from "./supabase/types";
 
 /**
@@ -31,6 +38,7 @@ import type { Database } from "./supabase/types";
 type ShopRow = Database["public"]["Tables"]["shops"]["Row"];
 type ArtRow = Database["public"]["Tables"]["arts"]["Row"];
 type StaffRow = Database["public"]["Tables"]["staff"]["Row"];
+type ReservationRow = Database["public"]["Tables"]["reservations"]["Row"];
 
 // Subset shapes for narrowed queries
 type ServiceCategoryLite = { id: string; code: string; name: string; sort_order: number };
@@ -125,11 +133,32 @@ function rowToArt(row: ArtRow, shopHandle: string, serviceCode: string): Art {
 /*  Public API                                                                */
 /* -------------------------------------------------------------------------- */
 
+// Joined select returns shop row + nested categories in one round trip.
+// Saves an extra ~50–150ms vs two sequential queries to Supabase.
+const SHOP_WITH_CATEGORIES_SELECT = `
+  *,
+  service_categories(code, name, sort_order, archived_at)
+`;
+
+type CategoryJoin = {
+  code: string;
+  name: string;
+  sort_order: number;
+  archived_at: string | null;
+};
+
+function pickCategories(joined: CategoryJoin[] | null | undefined): ServiceCategory[] {
+  return (joined ?? [])
+    .filter((c) => c.archived_at === null)
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map((c) => ({ code: c.code, name: c.name }));
+}
+
 export async function listShops(): Promise<Shop[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("shops")
-    .select("*")
+    .select(SHOP_WITH_CATEGORIES_SELECT)
     .is("archived_at", null)
     .order("created_at");
 
@@ -137,39 +166,29 @@ export async function listShops(): Promise<Shop[]> {
     return listMockShopsFromMock();
   }
 
-  const rows = data as ShopRow[];
-  return Promise.all(
-    rows.map(async (row) => rowToShop(row, await fetchCategoriesByShopId(row.id))),
-  );
+  const rows = data as (ShopRow & { service_categories: CategoryJoin[] })[];
+  return rows.map((row) => rowToShop(row, pickCategories(row.service_categories)));
 }
 
-export async function getShopByHandle(handle: string): Promise<Shop | undefined> {
+/**
+ * `cache()` deduplicates the lookup within a single render — the form page,
+ * for example, calls getShopByHandle plus listStaff/listArts that internally
+ * resolve shop_id, all sharing this one fetch.
+ */
+export const getShopByHandle = cache(async (handle: string): Promise<Shop | undefined> => {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("shops")
-    .select("*")
+    .select(SHOP_WITH_CATEGORIES_SELECT)
     .eq("handle", handle)
     .is("archived_at", null)
     .maybeSingle();
 
   if (error || !data) return getMockShopByHandle(handle);
 
-  const row = data as ShopRow;
-  const categories = await fetchCategoriesByShopId(row.id);
-  return rowToShop(row, categories);
-}
-
-async function fetchCategoriesByShopId(shopId: string): Promise<ServiceCategory[]> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("service_categories")
-    .select("code, name, sort_order")
-    .eq("shop_id", shopId)
-    .is("archived_at", null)
-    .order("sort_order");
-  const rows = (data ?? []) as Pick<ServiceCategoryLite, "code" | "name">[];
-  return rows.map((r) => ({ code: r.code, name: r.name }));
-}
+  const row = data as ShopRow & { service_categories: CategoryJoin[] };
+  return rowToShop(row, pickCategories(row.service_categories));
+});
 
 export async function listArts(
   handle: string,
@@ -288,4 +307,82 @@ export async function listAvailableTimes(
   _date?: Date,
 ): Promise<string[]> {
   return getMockAvailableTimes(handle);
+}
+
+/**
+ * Confirmed reservations for the shop owner's dashboard timetable.
+ *
+ * RLS gates this — only rows where `auth.uid()` owns the shop are returned.
+ * `fromDate` is a YYYY-MM-DD KST string; defaults to "today" computed in
+ * Asia/Seoul so a midnight call from a user in another timezone still hides
+ * yesterday's appointments.
+ */
+export async function listShopReservations(
+  shopId: string,
+  shopHandle: string,
+  fromDate?: string,
+): Promise<ShopReservation[]> {
+  const supabase = await createClient();
+
+  const today = fromDate ?? todayKST();
+
+  const { data, error } = await supabase
+    .from("reservations")
+    .select(
+      `
+      *,
+      arts(code, name, image_path),
+      service_categories(code, name),
+      staff(name)
+    `,
+    )
+    .eq("shop_id", shopId)
+    .eq("status", "confirmed")
+    .gte("reservation_date", today)
+    .order("reservation_date", { ascending: true })
+    .order("reservation_time", { ascending: true });
+
+  if (error || !data) return [];
+
+  type Joined = ReservationRow & {
+    arts: { code: string; name: string; image_path: string | null } | null;
+    service_categories: { code: string; name: string } | null;
+    staff: { name: string } | null;
+  };
+  const rows = data as Joined[];
+
+  return rows.map((r) => {
+    const artCode = r.arts?.code ?? "";
+    const img = shopImageWithDims(
+      r.arts?.image_path ?? null,
+      `mockups/${shopHandle}/arts/${artCode}`,
+    );
+    return {
+      id: r.id,
+      reservationDate: r.reservation_date,
+      reservationTime: r.reservation_time.slice(0, 5), // "HH:mm:ss" → "HH:mm"
+      durationMinutes: r.duration_minutes,
+      customerName: r.customer_name,
+      customerPhone: r.customer_phone,
+      depositorName: r.depositor_name,
+      artName: r.art_name,
+      artImageUrl: img.url,
+      serviceCategoryCode: r.service_categories?.code ?? "",
+      serviceCategoryName: r.service_categories?.name ?? "",
+      staffName: r.staff?.name ?? null,
+      totalPrice: r.total_price,
+      depositAmount: r.deposit_amount,
+      depositPaidAt: r.deposit_paid_at,
+      gelSelfRemoval: r.gel_self_removal,
+      gelOtherRemoval: r.gel_other_removal,
+      extensionCount: r.extension_count,
+      notes: r.notes,
+    };
+  });
+}
+
+/** Today as YYYY-MM-DD in Asia/Seoul. Reservations are stored as KST dates. */
+function todayKST(): string {
+  // sv-SE locale yields YYYY-MM-DD with no extra parts
+  return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
 }
