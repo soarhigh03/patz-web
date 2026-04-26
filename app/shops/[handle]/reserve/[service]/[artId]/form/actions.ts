@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { computeReservationDuration } from "@/lib/duration";
 
 export interface SubmitReservationInput {
   shopHandle: string;
@@ -72,15 +73,25 @@ export async function submitReservation(
 
   const { data: artData } = await supabase
     .from("arts")
-    .select("id, name, price, duration_minutes")
+    .select("id, name, price")
     .eq("shop_id", shop.id)
     .eq("code", input.artCode)
     .is("archived_at", null)
     .maybeSingle();
   const art = artData as
-    | { id: string; name: string; price: number; duration_minutes: number }
+    | { id: string; name: string; price: number }
     | null;
   if (!art) return { ok: false, error: "아트를 찾을 수 없어요." };
+
+  // Duration is computed (not pulled from arts.duration_minutes) so it
+  // accounts for 제거 / 연장 options the customer just picked. Stored as a
+  // snapshot on the reservation so future option-rule changes don't shift
+  // historical bookings.
+  const durationMinutes = computeReservationDuration({
+    serviceCode: input.serviceCode,
+    hasRemoval: input.gelOtherRemoval || input.gelSelfRemoval,
+    hasExtension: input.extensionCount > 0,
+  });
 
   // For mobile (logged-in) bookings, link the row to the user; web is anon.
   const {
@@ -99,7 +110,7 @@ export async function submitReservation(
       customer_phone: input.customerPhone,
       reservation_date: input.reservationDate,
       reservation_time: input.reservationTime,
-      duration_minutes: art.duration_minutes,
+      duration_minutes: durationMinutes,
       gel_self_removal: input.gelSelfRemoval,
       gel_other_removal: input.gelOtherRemoval,
       extension_count: input.extensionCount,
@@ -119,4 +130,44 @@ export async function submitReservation(
   }
 
   return { ok: true, reservationId: (inserted as { id: string }).id };
+}
+
+export interface BusyInterval {
+  /** Minutes-of-day at appointment start. */
+  start: number;
+  /** Minutes-of-day at appointment end (exclusive). */
+  end: number;
+}
+
+/**
+ * Returns busy windows for the (shop, date) — both pending and confirmed
+ * reservations. Customer-facing: the `get_busy_intervals` RPC bypasses RLS
+ * but only exposes minutes-of-day (no PII).
+ */
+export async function getBusyIntervals(
+  shopHandle: string,
+  date: string,
+): Promise<BusyInterval[]> {
+  const supabase = await createClient();
+
+  // Public read on shops.
+  const { data: shopData } = await supabase
+    .from("shops")
+    .select("id")
+    .eq("handle", shopHandle)
+    .is("archived_at", null)
+    .maybeSingle();
+  const shop = shopData as { id: string } | null;
+  if (!shop) return [];
+
+  const { data, error } = await supabase.rpc("get_busy_intervals", {
+    p_shop_id: shop.id,
+    p_date: date,
+  });
+  if (error || !data) return [];
+
+  return (data as { start_minutes: number; end_minutes: number }[]).map((r) => ({
+    start: r.start_minutes,
+    end: r.end_minutes,
+  }));
 }

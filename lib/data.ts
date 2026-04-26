@@ -317,7 +317,9 @@ export async function listAvailableTimes(
 }
 
 /**
- * Confirmed reservations for the shop owner's dashboard timetable.
+ * Reservations for the shop owner's dashboard. Accepts a status filter so
+ * the dashboard can split pending requests from the confirmed timetable in
+ * a single round-trip if needed.
  *
  * RLS gates this — only rows where `auth.uid()` owns the shop are returned.
  * `fromDate` is a YYYY-MM-DD KST string; defaults to "today" computed in
@@ -327,11 +329,15 @@ export async function listAvailableTimes(
 export async function listShopReservations(
   shopId: string,
   shopHandle: string,
-  fromDate?: string,
+  options: {
+    statuses?: ReadonlyArray<"pending" | "confirmed">;
+    fromDate?: string;
+  } = {},
 ): Promise<ShopReservation[]> {
   const supabase = await createClient();
 
-  const today = fromDate ?? todayKST();
+  const today = options.fromDate ?? todayKST();
+  const statuses = options.statuses ?? ["confirmed"];
 
   const { data, error } = await supabase
     .from("reservations")
@@ -344,7 +350,7 @@ export async function listShopReservations(
     `,
     )
     .eq("shop_id", shopId)
-    .eq("status", "confirmed")
+    .in("status", [...statuses])
     .gte("reservation_date", today)
     .order("reservation_date", { ascending: true })
     .order("reservation_time", { ascending: true });
@@ -384,6 +390,8 @@ export async function listShopReservations(
       gelOtherRemoval: r.gel_other_removal,
       extensionCount: r.extension_count,
       notes: r.notes,
+      // The query filters status IN (pending, confirmed); narrow here.
+      status: r.status as "pending" | "confirmed",
     };
   });
 }

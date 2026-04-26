@@ -1,10 +1,5 @@
 import { notFound } from "next/navigation";
-import {
-  getArt,
-  getShopByHandle,
-  listAvailableTimes,
-  listStaff,
-} from "@/lib/data";
+import { getArt, getShopByHandle, listStaff } from "@/lib/data";
 import { ReservationForm } from "@/components/ReservationForm";
 
 interface Params {
@@ -14,13 +9,13 @@ interface Params {
 export default async function ReservationFormPage({ params }: Params) {
   const { handle, service, artId } = await params;
 
-  // All four fetches run in parallel. getShopByHandle is React.cache()-wrapped
-  // so the shop_id lookup inside listStaff/getArt deduplicates with this one.
-  const [shop, art, staff, availableTimes] = await Promise.all([
+  // getShopByHandle is React.cache()-wrapped so the shop_id lookup inside
+  // listStaff/getArt deduplicates with this one. Time slots are computed
+  // on the client from shop hours + live busy intervals (per date).
+  const [shop, art, staff] = await Promise.all([
     getShopByHandle(handle),
     getArt(handle, artId),
     listStaff(handle),
-    listAvailableTimes(handle),
   ]);
 
   if (!shop) notFound();
@@ -29,12 +24,7 @@ export default async function ReservationFormPage({ params }: Params) {
 
   return (
     <main className="min-h-dvh">
-      <ReservationForm
-        shop={shop}
-        art={art}
-        staff={staff}
-        availableTimes={availableTimes}
-      />
+      <ReservationForm shop={shop} art={art} staff={staff} />
     </main>
   );
 }

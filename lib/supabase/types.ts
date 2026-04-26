@@ -153,6 +153,10 @@ export interface Database {
         Args: { p_token: string };
         Returns: void;
       };
+      get_busy_intervals: {
+        Args: { p_shop_id: string; p_date: string };
+        Returns: { start_minutes: number; end_minutes: number }[];
+      };
     };
     Enums: {
       reservation_status: ReservationStatus;

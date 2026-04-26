@@ -135,6 +135,9 @@ export interface ShopReservation {
   gelOtherRemoval: boolean;
   extensionCount: number;
   notes: string | null;
+
+  /** "pending" or "confirmed" — only these two reach the dashboard view. */
+  status: "pending" | "confirmed";
 }
 
 /** What each `public/mockups/<handle>/mockup.ts` must export. */
