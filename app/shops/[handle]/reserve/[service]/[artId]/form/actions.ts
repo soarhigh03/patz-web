@@ -93,11 +93,10 @@ export async function submitReservation(
     hasExtension: input.extensionCount > 0,
   });
 
-  // For mobile (logged-in) bookings, link the row to the user; web is anon.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  // Web customer flow is intentionally anonymous, even when a shop owner
+  // happens to be signed in — a non-null `customer_user_id` only passes RLS
+  // when it equals the SQL session's `auth.uid()`, and the ssr cookie auth
+  // can desync. Mobile binds its own user via a separate action.
   const { data: inserted, error: insertErr } = await supabase
     .from("reservations")
     .insert({
@@ -105,7 +104,7 @@ export async function submitReservation(
       service_category_id: cat.id,
       art_id: art.id,
       staff_id: input.staffId,
-      customer_user_id: user?.id ?? null,
+      customer_user_id: null,
       customer_name: input.customerName.trim(),
       customer_phone: input.customerPhone,
       reservation_date: input.reservationDate,
