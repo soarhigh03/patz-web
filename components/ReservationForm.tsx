@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Calendar } from "./Calendar";
@@ -8,6 +8,7 @@ import { CopyButton } from "./CopyButton";
 import { StickyCTA } from "./StickyCTA";
 import { formatPriceKRW } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { submitReservation } from "@/app/shops/[handle]/reserve/[service]/[artId]/form/actions";
 import type { Art, Shop, StaffSeed } from "@/lib/types";
 
 interface ReservationFormProps {
@@ -26,6 +27,8 @@ type StaffSelection = string | typeof ANY_STAFF;
  */
 export function ReservationForm({ shop, art, staff, availableTimes }: ReservationFormProps) {
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [name, setName] = useState("");
   const [phone1, setPhone1] = useState("");
@@ -93,12 +96,36 @@ export function ReservationForm({ shop, art, staff, availableTimes }: Reservatio
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!isValid) return;
-    // Step 7 will replace this with a real submit. For now, navigate to the
-    // confirmation screen — keeps the user-visible flow complete.
-    router.push(
-      `/shops/${shop.handle}/reserve/${art.service}/${art.id}/confirm`,
-    );
+    if (!isValid || isPending || date === null || time === null) return;
+    setSubmitError(null);
+
+    const reservationDate = formatLocalDate(date);
+    const phone = phone1 + phone2 + phone3;
+
+    startTransition(async () => {
+      const result = await submitReservation({
+        shopHandle: shop.handle,
+        serviceCode: art.service,
+        artCode: art.id,
+        customerName: name,
+        customerPhone: phone,
+        staffId: staffId === ANY_STAFF || staffId === null ? null : staffId,
+        reservationDate,
+        reservationTime: time,
+        gelSelfRemoval,
+        gelOtherRemoval,
+        extensionCount,
+        notes: notes.trim() ? notes : null,
+      });
+
+      if (!result.ok) {
+        setSubmitError(result.error);
+        return;
+      }
+      router.push(
+        `/shops/${shop.handle}/reserve/${art.service}/${art.id}/confirm`,
+      );
+    });
   }
 
   return (
@@ -277,9 +304,14 @@ export function ReservationForm({ shop, art, staff, availableTimes }: Reservatio
           입력 필요: {missing.join(", ")}
         </p>
       )}
+      {submitError && (
+        <p className="px-6 pt-2 text-center text-xs text-accent">
+          {submitError}
+        </p>
+      )}
 
-      <StickyCTA sticky={false} disabled={!isValid}>
-        예약하기
+      <StickyCTA sticky={false} disabled={!isValid || isPending}>
+        {isPending ? "예약 요청 중..." : "예약하기"}
       </StickyCTA>
     </form>
   );
@@ -359,6 +391,16 @@ function Chip({
       {children}
     </button>
   );
+}
+
+/** Calendar-selected `Date` → "YYYY-MM-DD" using the local clock (KST in
+ *  practice). `toISOString()` would shift to UTC and bump to the previous day
+ *  for late-evening picks. */
+function formatLocalDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 function PhotoUpload({
