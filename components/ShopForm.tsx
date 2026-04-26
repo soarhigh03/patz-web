@@ -147,7 +147,7 @@ export function ShopForm({
 
   return (
     <form onSubmit={handleSubmit} noValidate className="pb-2">
-      <div className="space-y-10 pt-8">
+      <div className="pt-8">
         {mode === "edit" && shopId && (
           <Section title="이미지">
             <ImageUpload
@@ -424,8 +424,11 @@ function Section({
   title: string;
   children: React.ReactNode;
 }) {
+  // Each section owns its own top spacing + hairline divider; the first
+  // section drops both via `first:` so the form doesn't open with a stray
+  // line above its title.
   return (
-    <section>
+    <section className="mt-10 border-t border-line/60 pt-10 first:mt-0 first:border-t-0 first:pt-0">
       <h2 className="text-sm font-medium text-muted">{title}</h2>
       <div className="mt-4 space-y-5">{children}</div>
     </section>
