@@ -23,7 +23,7 @@ export interface SubmitReservationInput {
 }
 
 export type SubmitReservationResult =
-  | { ok: true; reservationId: string }
+  | { ok: true }
   | { ok: false; error: string };
 
 /**
@@ -97,38 +97,41 @@ export async function submitReservation(
   // happens to be signed in — a non-null `customer_user_id` only passes RLS
   // when it equals the SQL session's `auth.uid()`, and the ssr cookie auth
   // can desync. Mobile binds its own user via a separate action.
-  const { data: inserted, error: insertErr } = await supabase
-    .from("reservations")
-    .insert({
-      shop_id: shop.id,
-      service_category_id: cat.id,
-      art_id: art.id,
-      staff_id: input.staffId,
-      customer_user_id: null,
-      customer_name: input.customerName.trim(),
-      customer_phone: input.customerPhone,
-      reservation_date: input.reservationDate,
-      reservation_time: input.reservationTime,
-      duration_minutes: durationMinutes,
-      gel_self_removal: input.gelSelfRemoval,
-      gel_other_removal: input.gelOtherRemoval,
-      extension_count: input.extensionCount,
-      notes: input.notes?.trim() || null,
-      art_name: art.name,
-      total_price: art.price,
-      deposit_amount: shop.deposit_amount ?? 0,
-    })
-    .select("id")
-    .single();
+  //
+  // CRITICAL: do not chain `.select()` here. PostgREST translates that into
+  // `INSERT ... RETURNING`, which makes Postgres run the row through the
+  // SELECT policy USING clause. Our SELECT policy requires either the
+  // customer's own auth.uid() OR shop ownership — anon customers satisfy
+  // neither, so RETURNING raises "new row violates row-level security
+  // policy" *for SELECT visibility*, not the INSERT WITH CHECK. Without
+  // `.select()` the request becomes `Prefer: return=minimal`, the row is
+  // never re-read, and only the INSERT WITH CHECK is evaluated (which
+  // passes trivially when customer_user_id is NULL).
+  const { error: insertErr } = await supabase.from("reservations").insert({
+    shop_id: shop.id,
+    service_category_id: cat.id,
+    art_id: art.id,
+    staff_id: input.staffId,
+    customer_user_id: null,
+    customer_name: input.customerName.trim(),
+    customer_phone: input.customerPhone,
+    reservation_date: input.reservationDate,
+    reservation_time: input.reservationTime,
+    duration_minutes: durationMinutes,
+    gel_self_removal: input.gelSelfRemoval,
+    gel_other_removal: input.gelOtherRemoval,
+    extension_count: input.extensionCount,
+    notes: input.notes?.trim() || null,
+    art_name: art.name,
+    total_price: art.price,
+    deposit_amount: shop.deposit_amount ?? 0,
+  });
 
-  if (insertErr || !inserted) {
-    return {
-      ok: false,
-      error: insertErr?.message ?? "예약 요청을 저장하지 못했어요.",
-    };
+  if (insertErr) {
+    return { ok: false, error: insertErr.message };
   }
 
-  return { ok: true, reservationId: (inserted as { id: string }).id };
+  return { ok: true };
 }
 
 export interface BusyInterval {
