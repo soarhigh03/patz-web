@@ -21,6 +21,11 @@ export default function LoginPage() {
         // provider's redirect — see app/auth/callback/route.ts for the
         // exchange + redirect-to-onboarding-or-dashboard logic.
         redirectTo: `${window.location.origin}/auth/callback`,
+        // Narrow Kakao scopes to email only — we don't use the nickname or
+        // profile picture Supabase pulls by default. Google's scopes are
+        // left at default ("email profile") since Google requires `profile`
+        // alongside `email` for the OIDC handshake to issue a usable id token.
+        scopes: provider === "kakao" ? "account_email" : undefined,
       },
     });
     if (error) {
