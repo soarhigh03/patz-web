@@ -11,7 +11,7 @@ const rows: Array<[string, string]> = [
   ["사업장 주소", "서울특별시 서초구 방배로 21"],
   ["대표 전화번호", "010-2305-7259"],
   ["대표 이메일", "patz.nail@gmail.com"],
-  ["통신판매업 신고번호", "확인 중"],
+  ["통신판매업 신고번호", "신고 면제 대상"],
 ];
 
 export default function BusinessInfoPage() {
