@@ -23,13 +23,6 @@ export function Footer() {
           </span>
         ))}
       </nav>
-      <p className="mt-4">
-        피버샌클럽 · 대표 최은우 · 사업자등록번호 583-12-03242
-        <br />
-        서울특별시 서초구 방배로 21
-        <br />
-        010-2305-7259 · patz.nail@gmail.com
-      </p>
       <p className="mt-3">© {new Date().getFullYear()} PATZ</p>
     </footer>
   );
