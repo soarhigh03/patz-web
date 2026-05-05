@@ -28,14 +28,20 @@ export interface Database {
           handle: string;
           name: string;
           owner_id: string;
+          shop_type: "solo" | "multi";
           phone: string | null;
           address: string | null;
           latitude: number | null;
           longitude: number | null;
+          hours_mode: "fixed" | "per_weekday" | "by_reservation";
           hours_open: string | null;
           hours_close: string | null;
           hours_break_start: string | null;
           hours_break_end: string | null;
+          hours_per_weekday: Record<
+            string,
+            { open: string | null; close: string | null }
+          > | null;
           closed_weekdays: number[] | null;
           hours_note: string | null;
           caution_note: string | null;

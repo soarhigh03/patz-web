@@ -3,6 +3,11 @@ import { redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { ShopForm, type ShopFormInitial } from "@/components/ShopForm";
+import type {
+  HoursMode,
+  HoursPerWeekday,
+  ShopType,
+} from "@/app/dashboard/shop/actions";
 
 export default async function ShopFormPage() {
   const supabase = await createClient();
@@ -20,19 +25,29 @@ export default async function ShopFormPage() {
     redirect("/onboarding");
   }
 
-  // Every column the form reads back. `*` would work but enumerating keeps
-  // the form ↔ schema mapping visible.
   const { data: shopRow } = await supabase
     .from("shops")
     .select(
-      "id, handle, name, phone, address, latitude, longitude, hours_open, hours_close, hours_break_start, hours_break_end, closed_weekdays, hours_note, caution_note, parking_info, map_badge, account_bank, account_number, deposit_amount, profile_image_path, background_image_path",
+      "id, handle, name, shop_type, phone, address, hours_mode, hours_open, hours_close, hours_break_start, hours_break_end, hours_per_weekday, closed_weekdays, hours_note, caution_note, parking_info, map_badge, account_bank, account_number, deposit_amount, profile_image_path, background_image_path",
     )
     .eq("owner_id", user.id)
     .maybeSingle();
 
   const mode: "create" | "edit" = shopRow ? "edit" : "create";
   const row = shopRow as unknown as ShopRow | null;
-  const initial = row ? rowToInitial(row) : EMPTY_INITIAL;
+
+  let staffNames: string[] = [];
+  if (row && row.shop_type === "multi") {
+    const { data: staffRows } = await supabase
+      .from("staff")
+      .select("name, sort_order")
+      .eq("shop_id", row.id)
+      .eq("active", true)
+      .order("sort_order", { ascending: true });
+    staffNames = (staffRows as { name: string }[] | null)?.map((s) => s.name) ?? [];
+  }
+
+  const initial = row ? rowToInitial(row, staffNames) : EMPTY_INITIAL;
   const profileImageUrl = row ? storageUrl(row.profile_image_path) : undefined;
   const backgroundImageUrl = row
     ? storageUrl(row.background_image_path)
@@ -77,14 +92,15 @@ interface ShopRow {
   id: string;
   handle: string;
   name: string;
+  shop_type: ShopType;
   phone: string | null;
   address: string | null;
-  latitude: number | null;
-  longitude: number | null;
+  hours_mode: HoursMode;
   hours_open: string | null;
   hours_close: string | null;
   hours_break_start: string | null;
   hours_break_end: string | null;
+  hours_per_weekday: HoursPerWeekday | null;
   closed_weekdays: number[] | null;
   hours_note: string | null;
   caution_note: string | null;
@@ -97,20 +113,21 @@ interface ShopRow {
   background_image_path: string | null;
 }
 
-function rowToInitial(r: ShopRow): ShopFormInitial {
+function rowToInitial(r: ShopRow, staffNames: string[]): ShopFormInitial {
   return {
     handle: r.handle,
     name: r.name,
+    shopType: r.shop_type,
+    staffNames,
     phone: r.phone,
     address: r.address,
-    latitude: r.latitude,
-    longitude: r.longitude,
-    // Postgres `time` serializes as "HH:MM:SS"; the form's <input type="time">
-    // expects "HH:mm".
+    hoursMode: r.hours_mode,
+    // Postgres `time` serializes as "HH:MM:SS"; <input type="time"> wants "HH:mm".
     hoursOpen: trimSeconds(r.hours_open),
     hoursClose: trimSeconds(r.hours_close),
     hoursBreakStart: trimSeconds(r.hours_break_start),
     hoursBreakEnd: trimSeconds(r.hours_break_end),
+    hoursPerWeekday: r.hours_per_weekday ?? {},
     closedWeekdays: r.closed_weekdays ?? [],
     hoursNote: r.hours_note,
     cautionNote: r.caution_note,
@@ -130,14 +147,16 @@ function trimSeconds(t: string | null): string | null {
 const EMPTY_INITIAL: ShopFormInitial = {
   handle: "",
   name: "",
+  shopType: "solo",
+  staffNames: [],
   phone: null,
   address: null,
-  latitude: null,
-  longitude: null,
+  hoursMode: "fixed",
   hoursOpen: null,
   hoursClose: null,
   hoursBreakStart: null,
   hoursBreakEnd: null,
+  hoursPerWeekday: {},
   closedWeekdays: [],
   hoursNote: null,
   cautionNote: null,

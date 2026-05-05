@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -41,8 +42,15 @@ export function DashboardSidebar({ shop, userEmail }: Props) {
   return (
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-line bg-white lg:flex">
       <div className="px-6 pt-8">
-        <Link href="/dashboard" className="block text-lg font-semibold tracking-tight">
-          PATZ
+        <Link href="/dashboard" className="block">
+          <Image
+            src="/logo/grad-sym-letter.png"
+            alt="PATZ"
+            width={96}
+            height={36}
+            priority
+            className="h-9 w-auto"
+          />
         </Link>
         {shop ? (
           <div className="mt-4">

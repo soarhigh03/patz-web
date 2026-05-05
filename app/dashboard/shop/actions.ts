@@ -2,24 +2,36 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { geocodeAddress } from "@/lib/geocode";
+
+export type ShopType = "solo" | "multi";
+export type HoursMode = "fixed" | "per_weekday" | "by_reservation";
+
+/** Per-weekday open/close. Keys: "0" (Sun) .. "6" (Sat). Both fields optional. */
+export type HoursPerWeekday = Record<
+  string,
+  { open: string | null; close: string | null }
+>;
 
 export interface SaveShopInput {
-  /** URL slug. Must match `^[a-z0-9][a-z0-9-]{1,30}$`. Editable in both
-   *  create and edit modes — schema FKs use the row id, not the handle, so
-   *  changing it doesn't break internal references. (Sharable URLs do
-   *  change.) */
+  /** URL slug. Must match `^[a-z0-9][a-z0-9-]{1,30}$`. */
   handle: string;
   name: string;
+  shopType: ShopType;
+  /** Names of additional staff (used only when shopType === 'multi'). */
+  staffNames: string[];
   phone: string | null;
   address: string | null;
-  latitude: number | null;
-  longitude: number | null;
-  /** "HH:mm" 24h. */
+  hoursMode: HoursMode;
+  /** "HH:mm". Used only when hoursMode === 'fixed'. */
   hoursOpen: string | null;
   hoursClose: string | null;
+  /** "HH:mm". null when 휴게 toggle is off. Used only when hoursMode === 'fixed'. */
   hoursBreakStart: string | null;
   hoursBreakEnd: string | null;
-  /** 0=Sun … 6=Sat. */
+  /** Used only when hoursMode === 'per_weekday'. */
+  hoursPerWeekday: HoursPerWeekday;
+  /** 0=Sun … 6=Sat. Used only when hoursMode === 'fixed'. */
   closedWeekdays: number[];
   hoursNote: string | null;
   cautionNote: string | null;
@@ -27,6 +39,7 @@ export interface SaveShopInput {
   mapBadge: string | null;
   accountBank: string | null;
   accountNumber: string | null;
+  /** null when 예약금 toggle is off. */
   depositAmount: number | null;
 }
 
@@ -38,8 +51,8 @@ export type SaveShopResult =
  * Create or update the signed-in user's shop. `UNIQUE(owner_id)` on `shops`
  * means the same user can never end up owning two — so this acts as upsert.
  *
- * Handle uniqueness and format are enforced by DB constraints; we duplicate
- * the format check client-side for a friendlier message.
+ * Coordinates are derived from `address` via Kakao Local; if the lookup fails
+ * we save lat/lng as null (the public page just hides the map pin).
  */
 export async function saveShop(
   input: SaveShopInput,
@@ -61,6 +74,10 @@ export async function saveShop(
     return { ok: false, error: "샵 이름을 입력해주세요." };
   }
 
+  const coords = input.address
+    ? await geocodeAddress(input.address)
+    : null;
+
   const { data: existing } = await supabase
     .from("shops")
     .select("id, handle")
@@ -68,18 +85,24 @@ export async function saveShop(
     .maybeSingle();
   const exist = existing as { id: string; handle: string } | null;
 
-  // Field values shared between insert and update.
+  // Mode-aware nulling: only persist fields relevant to the chosen hoursMode.
+  const fixedHours = input.hoursMode === "fixed";
+  const perWeekday = input.hoursMode === "per_weekday";
+
   const fields = {
     name: input.name.trim(),
+    shop_type: input.shopType,
     phone: nullable(input.phone),
     address: nullable(input.address),
-    latitude: input.latitude,
-    longitude: input.longitude,
-    hours_open: nullable(input.hoursOpen),
-    hours_close: nullable(input.hoursClose),
-    hours_break_start: nullable(input.hoursBreakStart),
-    hours_break_end: nullable(input.hoursBreakEnd),
-    closed_weekdays: input.closedWeekdays,
+    latitude: coords?.latitude ?? null,
+    longitude: coords?.longitude ?? null,
+    hours_mode: input.hoursMode,
+    hours_open: fixedHours ? nullable(input.hoursOpen) : null,
+    hours_close: fixedHours ? nullable(input.hoursClose) : null,
+    hours_break_start: fixedHours ? nullable(input.hoursBreakStart) : null,
+    hours_break_end: fixedHours ? nullable(input.hoursBreakEnd) : null,
+    hours_per_weekday: perWeekday ? input.hoursPerWeekday : null,
+    closed_weekdays: fixedHours ? input.closedWeekdays : [],
     hours_note: nullable(input.hoursNote),
     caution_note: nullable(input.cautionNote),
     parking_info: nullable(input.parkingInfo),
@@ -105,16 +128,35 @@ export async function saveShop(
     return { ok: true, handle: input.handle, created: false };
   }
 
-  const { error } = await supabase.from("shops").insert({
-    ...fields,
-    handle: input.handle,
-    owner_id: user.id,
-  });
-  // INSERT into shops is fine to chain with .select() because the SELECT
-  // policy is public (`shops_select_public`) — but we don't need the row
-  // back, so skip it.
+  const { data: inserted, error } = await supabase
+    .from("shops")
+    .insert({
+      ...fields,
+      handle: input.handle,
+      owner_id: user.id,
+    })
+    .select("id")
+    .single();
   if (error) {
     return { ok: false, error: friendlyHandleError(error.message) };
+  }
+  const newShopId = (inserted as { id: string } | null)?.id;
+
+  // 여러 명 운영 → 입력한 쌤 이름들을 staff 테이블에 적재.
+  if (input.shopType === "multi" && newShopId) {
+    const cleanedStaff = input.staffNames
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    if (cleanedStaff.length > 0) {
+      const rows = cleanedStaff.map((name, i) => ({
+        shop_id: newShopId,
+        name,
+        sort_order: i,
+      }));
+      await supabase.from("staff").insert(rows);
+      // 실패해도 샵 자체는 만들어진 상태이므로 막지는 않는다 — 사용자는 추후
+      // 아트/쌤 관리에서 직접 수정할 수 있다.
+    }
   }
 
   revalidatePath(`/shops/${input.handle}`);
@@ -148,7 +190,6 @@ export async function updateShopImage(
   const column =
     field === "profile" ? "profile_image_path" : "background_image_path";
 
-  // Look up the handle so we can revalidate the public shop page.
   const { data: shopRow } = await supabase
     .from("shops")
     .select("id, handle")
