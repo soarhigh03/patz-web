@@ -102,7 +102,7 @@ export function ShopForm({
     });
   }
 
-  const handleValid = /^[a-z0-9][a-z0-9-]{1,30}$/.test(handle);
+  const handleValid = /^[a-z0-9][a-z0-9-]{3,30}$/.test(handle);
   const isValid =
     handleValid &&
     name.trim().length > 0 &&
@@ -239,7 +239,7 @@ export function ShopForm({
                 />
               </div>
               <Hint>
-                영문 소문자 / 숫자 / 하이픈, 2~31자.
+                영문 소문자 / 숫자 / 하이픈, 4~31자.
                 {mode === "edit" &&
                   " URL을 바꾸면 기존 공유 링크는 더 이상 작동하지 않아요."}
               </Hint>

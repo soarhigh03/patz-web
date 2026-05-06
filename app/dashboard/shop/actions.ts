@@ -64,10 +64,10 @@ export async function saveShop(
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "로그인이 필요해요." };
 
-  if (!/^[a-z0-9][a-z0-9-]{1,30}$/.test(input.handle)) {
+  if (!/^[a-z0-9][a-z0-9-]{3,30}$/.test(input.handle)) {
     return {
       ok: false,
-      error: "샵 URL은 영문 소문자 / 숫자 / 하이픈으로 2~31자여야 해요.",
+      error: "샵 URL은 영문 소문자 / 숫자 / 하이픈으로 4~31자여야 해요.",
     };
   }
   if (!input.name.trim()) {
