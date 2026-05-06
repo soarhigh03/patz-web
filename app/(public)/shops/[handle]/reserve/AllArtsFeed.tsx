@@ -88,7 +88,7 @@ export function AllArtsFeed({ arts, categories, staff, handle }: Props) {
             : "아직 등록된 아트가 없어요."}
         </p>
       ) : (
-        <div className="space-y-2">
+        <div className="divide-y divide-neutral-200">
           {visibleCategories.map((cat) => (
             <CategorySection
               key={cat.code}
