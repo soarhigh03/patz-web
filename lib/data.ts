@@ -274,7 +274,7 @@ export async function getArt(
 
   const { data, error } = await supabase
     .from("arts")
-    .select("*, service_categories!inner(code)")
+    .select("*, service_categories!inner(code), art_staff(staff_id, staff(name))")
     .eq("shop_id", shopRow.id)
     .eq("code", artCode)
     .is("archived_at", null)
@@ -282,8 +282,14 @@ export async function getArt(
 
   if (error || !data) return undefined;
 
-  const row = data as ArtWithCategory;
-  return rowToArt(row, handle, row.service_categories.code);
+  type ArtStaffJoin = { staff_id: string; staff: { name: string } | null };
+  const row = data as ArtWithCategory & { art_staff?: ArtStaffJoin[] };
+  const artStaff = row.art_staff ?? [];
+  return {
+    ...rowToArt(row, handle, row.service_categories.code),
+    staffIds: artStaff.map((as) => as.staff_id),
+    staffNames: artStaff.map((as) => as.staff?.name ?? ""),
+  };
 }
 
 export async function listStaff(handle: string): Promise<StaffSeed[]> {

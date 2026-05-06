@@ -53,6 +53,28 @@ export default async function ArtDetailPage({ params }: Params) {
         <p className="mt-3 text-xs text-muted">
           *소요시간은 젤 제거 여부, 연장 여부에 따라 달라질 수 있습니다.
         </p>
+
+        <div className="mt-6 rounded-xl bg-neutral-50 px-5 py-4">
+          {art.staffNames && art.staffNames.length > 0 ? (
+            <>
+              <p className="text-sm font-medium text-ink">지정 쌤</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {art.staffNames.map((name) => (
+                  <span
+                    key={name}
+                    className="rounded-full bg-white px-3 py-1 text-sm text-ink shadow-sm ring-1 ring-neutral-200"
+                  >
+                    {name}
+                  </span>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-ink">
+              샵 내 모든 쌤에게 받을 수 있어요!
+            </p>
+          )}
+        </div>
       </section>
 
       <StickyCTA href={`/shops/${handle}/reserve/${service}/${artId}/form`}>

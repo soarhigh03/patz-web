@@ -66,6 +66,8 @@ export interface Art {
   imageHeight?: number;
   /** Staff IDs that can perform this art. Empty = all staff (상관없음). */
   staffIds?: string[];
+  /** Staff names matching staffIds order. Present when fetched via getArt. */
+  staffNames?: string[];
 }
 
 export interface Staff {
