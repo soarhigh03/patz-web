@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getArt, getShopByHandle } from "@/lib/data";
 import { formatDurationKR, formatPriceKRW } from "@/lib/format";
 import { StickyCTA } from "@/components/StickyCTA";
+import { BackButton } from "@/components/BackButton";
 
 interface Params {
   params: Promise<{ handle: string; service: string; artId: string }>;
@@ -23,6 +24,7 @@ export default async function ArtDetailPage({ params }: Params) {
 
   return (
     <main className="min-h-dvh">
+      <BackButton />
       <div className="relative aspect-square w-full bg-neutral-200">
         {art.imageUrl ? (
           <Image

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getArt, getShopByHandle, listStaff } from "@/lib/data";
 import { ReservationForm } from "@/components/ReservationForm";
+import { BackButton } from "@/components/BackButton";
 
 interface Params {
   params: Promise<{ handle: string; service: string; artId: string }>;
@@ -24,6 +25,7 @@ export default async function ReservationFormPage({ params }: Params) {
 
   return (
     <main className="min-h-dvh">
+      <BackButton />
       <ReservationForm shop={shop} art={art} staff={staff} />
     </main>
   );

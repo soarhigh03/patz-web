@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { ArtTile } from "@/components/ArtTile";
+import { BackButton } from "@/components/BackButton";
 import type { Art, ServiceCategory, StaffSeed } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { splitIntoColumns } from "@/lib/columns";
@@ -42,6 +43,7 @@ export function AllArtsFeed({ arts, categories, staff, handle }: Props) {
 
   return (
     <main className="min-h-dvh px-4 pt-20 pb-10">
+      <BackButton />
       <h1 className="mb-4 text-center text-base font-medium">
         원하시는 아트를 선택하세요.
       </h1>
