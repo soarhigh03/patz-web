@@ -469,11 +469,17 @@ interface EndSlot {
   durationMinutes: number;
 }
 
+/** Practical ceiling for a single appointment — even the longest nail-art
+ *  sessions don't run past three hours, so don't clutter the picker with
+ *  pills the owner would never choose. */
+const MAX_DURATION_MIN = 180;
+
 /**
  * End-time candidates are 30-min increments past `startTime`, capped at the
- * first conflict (break, busy interval, or shop close). The list grows
- * monotonically — once any candidate end overlaps something, all later ends
- * would too, so we stop. Each entry's labeled duration is end - start.
+ * first conflict (break, busy interval, or shop close) and at the
+ * `MAX_DURATION_MIN` ceiling. The list grows monotonically — once any
+ * candidate end overlaps something, all later ends would too, so we stop.
+ * Each entry's labeled duration is end - start.
  */
 function deriveEndSlots({
   startTime,
@@ -490,9 +496,10 @@ function deriveEndSlots({
     ? parseHHmm(shopHours.breakStart)
     : null;
   const breakEnd = shopHours.breakEnd ? parseHHmm(shopHours.breakEnd) : null;
+  const maxEnd = Math.min(closeMin, startMin + MAX_DURATION_MIN);
 
   const slots: EndSlot[] = [];
-  for (let e = startMin + SLOT_INTERVAL_MIN; e <= closeMin; e += SLOT_INTERVAL_MIN) {
+  for (let e = startMin + SLOT_INTERVAL_MIN; e <= maxEnd; e += SLOT_INTERVAL_MIN) {
     if (
       breakStart !== null &&
       breakEnd !== null &&
