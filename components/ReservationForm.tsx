@@ -276,7 +276,7 @@ export function ReservationForm({ shop, art, staff }: ReservationFormProps) {
                     onChange={(e) => toggleOtherRemoval(e.target.checked)}
                     className="h-5 w-5 rounded border-line accent-ink"
                   />
-                  <span className="text-sm font-medium">타샵 제거</span>
+                  <span className="text-sm font-medium">타샵 네일 제거</span>
                 </label>
                 <label className="flex cursor-pointer items-center gap-2.5">
                   <input
@@ -285,7 +285,7 @@ export function ReservationForm({ shop, art, staff }: ReservationFormProps) {
                     onChange={(e) => toggleSelfRemoval(e.target.checked)}
                     className="h-5 w-5 rounded border-line accent-ink"
                   />
-                  <span className="text-sm font-medium">자샵 제거</span>
+                  <span className="text-sm font-medium">자샵 네일 제거</span>
                 </label>
                 <label className="flex cursor-pointer items-center gap-2.5">
                   <input
