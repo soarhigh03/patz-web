@@ -194,7 +194,7 @@ export function ShopForm({
                   router.refresh();
                 }}
                 enableCrop
-                cropAspect={3 / 1}
+                cropAspect={5 / 2}
                 cropFixed
               />
               <ImageUpload

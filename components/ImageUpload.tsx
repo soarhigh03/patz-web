@@ -170,7 +170,7 @@ export function ImageUpload({
       <div
         className={cn(
           "relative mt-2 overflow-hidden rounded-xl border border-line bg-neutral-100",
-          aspect === "square" ? "aspect-square" : "aspect-[3/1]",
+          aspect === "square" ? "aspect-square" : "aspect-[5/2]",
           previewClassName ?? (aspect === "square" ? "w-32" : "w-full"),
         )}
       >

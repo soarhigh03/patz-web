@@ -8,7 +8,7 @@ import type { Shop } from "@/lib/types";
 export function ShopHeader({ shop }: { shop: Shop }) {
   return (
     <header className="relative">
-      <div className="relative h-72 w-full overflow-hidden bg-neutral-200">
+      <div className="relative aspect-[5/2] w-full overflow-hidden bg-neutral-200">
         {shop.backgroundImageUrl ? (
           <Image
             src={shop.backgroundImageUrl}
