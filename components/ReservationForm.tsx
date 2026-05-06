@@ -268,17 +268,23 @@ export function ReservationForm({ shop, art, staff }: ReservationFormProps) {
                     key={s.id}
                     selected={staffId === s.id}
                     onClick={() => setStaffId(s.id)}
+                    disabled={staffId === ANY_STAFF}
                   >
                     {s.name}
                   </Chip>
                 ))}
-                <Chip
-                  selected={staffId === ANY_STAFF}
-                  onClick={() => setStaffId(ANY_STAFF)}
-                >
-                  상관없음
-                </Chip>
               </div>
+              <label className="mt-3 flex w-fit cursor-pointer items-center gap-2.5">
+                <input
+                  type="checkbox"
+                  checked={staffId === ANY_STAFF}
+                  onChange={(e) =>
+                    setStaffId(e.target.checked ? ANY_STAFF : null)
+                  }
+                  className="h-5 w-5 rounded border-line accent-ink"
+                />
+                <span className="text-sm font-medium">상관없음</span>
+              </label>
             </Field>
 
             <Field label="제거 여부" required>
@@ -502,20 +508,26 @@ function Chip({
   children,
   selected,
   onClick,
+  disabled = false,
 }: {
   children: React.ReactNode;
   selected: boolean;
   onClick: () => void;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       className={cn(
         "rounded-full border px-4 py-1.5 text-sm transition",
         selected
           ? "border-ink bg-ink text-white"
-          : "border-line bg-white text-ink hover:bg-neutral-50",
+          : "border-line bg-white text-ink",
+        disabled
+          ? "cursor-not-allowed opacity-40"
+          : "hover:bg-neutral-50",
       )}
     >
       {children}
