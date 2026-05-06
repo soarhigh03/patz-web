@@ -336,9 +336,7 @@ function WeekView({
             <ChevronRight size={18} />
           </button>
         </div>
-        {!canGoBack && (
-          <span className="text-xs text-muted">이번 주는 지난 일정을 표시하지 않아요.</span>
-        )}
+
       </div>
 
       <div className="overflow-hidden rounded-xl border border-line bg-white">
