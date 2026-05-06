@@ -12,7 +12,10 @@ import type { Art } from "@/lib/types";
  */
 export function ArtTile({ art, href }: { art: Art; href: string }) {
   return (
-    <Link href={href} className="block overflow-hidden rounded-md bg-neutral-200">
+    <Link
+      href={href}
+      className="relative block overflow-hidden rounded-md bg-neutral-200"
+    >
       {art.imageUrl && art.imageWidth && art.imageHeight ? (
         <Image
           src={art.imageUrl}
@@ -33,6 +36,11 @@ export function ArtTile({ art, href }: { art: Art; href: string }) {
         <div className="flex aspect-square w-full items-end p-2 text-[11px] text-muted">
           {art.name}
         </div>
+      )}
+      {art.isThisMonth && (
+        <span className="absolute left-2 top-2 rounded-full bg-ink/85 px-2 py-0.5 text-[10px] font-medium text-white">
+          이달의 아트
+        </span>
       )}
     </Link>
   );

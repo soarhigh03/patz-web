@@ -68,6 +68,8 @@ export interface Art {
   staffIds?: string[];
   /** Staff names matching staffIds order. Present when fetched via getArt. */
   staffNames?: string[];
+  /** Highlighted as this month's featured art — overlays a pill on the tile. */
+  isThisMonth?: boolean;
 }
 
 export interface Staff {

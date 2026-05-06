@@ -136,6 +136,7 @@ function rowToArt(row: ArtRow, shopHandle: string, serviceCode: string): Art {
     imageUrl: img.url,
     imageWidth: img.width,
     imageHeight: img.height,
+    isThisMonth: row.is_this_month,
   };
 }
 
