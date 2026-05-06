@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import Cropper from "react-easy-crop";
 import type { Area } from "react-easy-crop";
 
@@ -18,6 +18,8 @@ const ASPECT_OPTIONS = [
   { label: "3:4", value: 3 / 4 },
   { label: "자유", value: 0 }, // 0 = free mode
 ] as const;
+
+const OVERLAY_COLOR = "rgba(0,0,0,0.45)";
 
 /**
  * Full-screen crop modal with yellow selection box.
@@ -49,6 +51,8 @@ export function CropModal({ imageSrc, onCropDone, onClose, fixedAspect }: CropMo
     if (blob) onCropDone(blob);
   }
 
+  const isFreeMode = !fixedAspect && selectedAspect === 0;
+
   // When fixedAspect is set, always use it. Otherwise allow switching.
   const cropperAspect = fixedAspect
     ? fixedAspect
@@ -79,28 +83,35 @@ export function CropModal({ imageSrc, onCropDone, onClose, fixedAspect }: CropMo
 
       {/* Cropper area */}
       <div className="relative flex-1">
-        <Cropper
-          image={imageSrc}
-          crop={crop}
-          zoom={zoom}
-          aspect={cropperAspect}
-          onCropChange={setCrop}
-          onZoomChange={setZoom}
-          onCropComplete={onCropComplete}
-          showGrid={false}
-          style={{
-            cropAreaStyle: {
-              border: "3px solid #FACC15",
-              boxShadow: "0 0 0 9999px rgba(0,0,0,1)",
-            },
-          }}
-          classes={{
-            containerClassName: "!absolute !inset-0",
-          }}
-        />
+        {isFreeMode ? (
+          <FreeCropper
+            imageSrc={imageSrc}
+            onCropChange={(area) => setCroppedAreaPixels(area)}
+          />
+        ) : (
+          <Cropper
+            image={imageSrc}
+            crop={crop}
+            zoom={zoom}
+            aspect={cropperAspect}
+            onCropChange={setCrop}
+            onZoomChange={setZoom}
+            onCropComplete={onCropComplete}
+            showGrid={false}
+            style={{
+              cropAreaStyle: {
+                border: "3px solid #FACC15",
+                boxShadow: `0 0 0 9999px ${OVERLAY_COLOR}`,
+              },
+            }}
+            classes={{
+              containerClassName: "!absolute !inset-0",
+            }}
+          />
+        )}
       </div>
 
-      {/* Aspect ratio presets — hidden when aspect is fixed */}
+      {/* Aspect ratio presets -- hidden when aspect is fixed */}
       {!fixedAspect && (
         <div className="flex items-center justify-center gap-3 px-4 py-4">
           {ASPECT_OPTIONS.map((opt) => (
@@ -120,20 +131,22 @@ export function CropModal({ imageSrc, onCropDone, onClose, fixedAspect }: CropMo
         </div>
       )}
 
-      {/* Zoom slider */}
-      <div className="flex items-center justify-center gap-3 px-8 pb-6">
-        <span className="text-xs text-white/60">-</span>
-        <input
-          type="range"
-          min={1}
-          max={3}
-          step={0.05}
-          value={zoom}
-          onChange={(e) => setZoom(Number(e.target.value))}
-          className="h-1 w-full max-w-xs cursor-pointer appearance-none rounded bg-white/30 accent-yellow-400"
-        />
-        <span className="text-xs text-white/60">+</span>
-      </div>
+      {/* Zoom slider -- hidden in free mode (user resizes crop directly) */}
+      {!isFreeMode && (
+        <div className="flex items-center justify-center gap-3 px-8 pb-6">
+          <span className="text-xs text-white/60">-</span>
+          <input
+            type="range"
+            min={1}
+            max={3}
+            step={0.05}
+            value={zoom}
+            onChange={(e) => setZoom(Number(e.target.value))}
+            className="h-1 w-full max-w-xs cursor-pointer appearance-none rounded bg-white/30 accent-yellow-400"
+          />
+          <span className="text-xs text-white/60">+</span>
+        </div>
+      )}
 
       {!fixedAspect && (
         <p className="pb-4 text-center text-xs text-white/50">
@@ -143,6 +156,249 @@ export function CropModal({ imageSrc, onCropDone, onClose, fixedAspect }: CropMo
     </div>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/*  FreeCropper – custom free-ratio crop with corner handles          */
+/* ------------------------------------------------------------------ */
+
+interface ImgLayout {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  scale: number;
+}
+
+interface CropRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+const MIN_SIZE = 30;
+const HANDLE_HIT = 40;
+const HANDLE_VISIBLE = 20;
+const CORNERS = ["tl", "tr", "bl", "br"] as const;
+
+function clamp(v: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, v));
+}
+
+function FreeCropper({
+  imageSrc,
+  onCropChange,
+}: {
+  imageSrc: string;
+  onCropChange: (area: Area) => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [imgLayout, setImgLayout] = useState<ImgLayout | null>(null);
+  const [cropRect, setCropRect] = useState<CropRect | null>(null);
+
+  // Report pixel area to parent whenever crop changes
+  const reportCrop = useCallback(
+    (rect: CropRect, img: ImgLayout) => {
+      onCropChange({
+        x: Math.round((rect.x - img.left) / img.scale),
+        y: Math.round((rect.y - img.top) / img.scale),
+        width: Math.round(rect.w / img.scale),
+        height: Math.round(rect.h / img.scale),
+      });
+    },
+    [onCropChange],
+  );
+
+  const handleImageLoad = useCallback(
+    (e: React.SyntheticEvent<HTMLImageElement>) => {
+      const img = e.currentTarget;
+      const container = containerRef.current;
+      if (!container) return;
+
+      const cRect = container.getBoundingClientRect();
+      const scale = Math.min(
+        cRect.width / img.naturalWidth,
+        cRect.height / img.naturalHeight,
+      );
+      const w = img.naturalWidth * scale;
+      const h = img.naturalHeight * scale;
+      const layout: ImgLayout = {
+        left: (cRect.width - w) / 2,
+        top: (cRect.height - h) / 2,
+        width: w,
+        height: h,
+        scale,
+      };
+      setImgLayout(layout);
+
+      const margin = 0.1;
+      const initCrop: CropRect = {
+        x: layout.left + w * margin,
+        y: layout.top + h * margin,
+        w: w * (1 - 2 * margin),
+        h: h * (1 - 2 * margin),
+      };
+      setCropRect(initCrop);
+      reportCrop(initCrop, layout);
+    },
+    [reportCrop],
+  );
+
+  const startDrag = useCallback(
+    (handle: string) => (e: React.PointerEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!cropRect || !imgLayout) return;
+
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const s = { ...cropRect };
+      const img = imgLayout;
+
+      const onMove = (me: PointerEvent) => {
+        const dx = me.clientX - startX;
+        const dy = me.clientY - startY;
+        const imgRight = img.left + img.width;
+        const imgBottom = img.top + img.height;
+
+        const next: CropRect = { ...s };
+
+        if (handle === "move") {
+          next.x = clamp(s.x + dx, img.left, imgRight - s.w);
+          next.y = clamp(s.y + dy, img.top, imgBottom - s.h);
+        } else {
+          if (handle.includes("l")) {
+            const rightEdge = s.x + s.w;
+            const newLeft = clamp(s.x + dx, img.left, rightEdge - MIN_SIZE);
+            next.x = newLeft;
+            next.w = rightEdge - newLeft;
+          } else if (handle.includes("r")) {
+            const newRight = clamp(s.x + s.w + dx, s.x + MIN_SIZE, imgRight);
+            next.w = newRight - s.x;
+          }
+
+          if (handle.includes("t")) {
+            const bottomEdge = s.y + s.h;
+            const newTop = clamp(s.y + dy, img.top, bottomEdge - MIN_SIZE);
+            next.y = newTop;
+            next.h = bottomEdge - newTop;
+          } else if (handle.includes("b")) {
+            const newBottom = clamp(
+              s.y + s.h + dy,
+              s.y + MIN_SIZE,
+              imgBottom,
+            );
+            next.h = newBottom - s.y;
+          }
+        }
+
+        setCropRect(next);
+        reportCrop(next, img);
+      };
+
+      const onUp = () => {
+        document.removeEventListener("pointermove", onMove);
+        document.removeEventListener("pointerup", onUp);
+      };
+
+      document.addEventListener("pointermove", onMove);
+      document.addEventListener("pointerup", onUp);
+    },
+    [cropRect, imgLayout, reportCrop],
+  );
+
+  return (
+    <div
+      ref={containerRef}
+      className="absolute inset-0 overflow-hidden"
+      style={{ touchAction: "none" }}
+    >
+      {/* Image */}
+      <img
+        src={imageSrc}
+        alt=""
+        draggable={false}
+        className="absolute select-none"
+        style={
+          imgLayout
+            ? {
+                left: imgLayout.left,
+                top: imgLayout.top,
+                width: imgLayout.width,
+                height: imgLayout.height,
+              }
+            : { opacity: 0 }
+        }
+        onLoad={handleImageLoad}
+      />
+
+      {cropRect && (
+        <>
+          {/* Overlay (semi-transparent outside crop) */}
+          <div
+            className="pointer-events-none absolute"
+            style={{
+              left: cropRect.x,
+              top: cropRect.y,
+              width: cropRect.w,
+              height: cropRect.h,
+              boxShadow: `0 0 0 9999px ${OVERLAY_COLOR}`,
+              border: "3px solid #FACC15",
+              zIndex: 10,
+            }}
+          />
+
+          {/* Move area */}
+          <div
+            className="absolute cursor-move"
+            style={{
+              left: cropRect.x,
+              top: cropRect.y,
+              width: cropRect.w,
+              height: cropRect.h,
+              zIndex: 11,
+              touchAction: "none",
+            }}
+            onPointerDown={startDrag("move")}
+          />
+
+          {/* Corner handles */}
+          {CORNERS.map((h) => {
+            const cx = h.includes("l") ? cropRect.x : cropRect.x + cropRect.w;
+            const cy = h.includes("t") ? cropRect.y : cropRect.y + cropRect.h;
+            const cursor =
+              h === "tl" || h === "br" ? "nwse-resize" : "nesw-resize";
+            return (
+              <div
+                key={h}
+                className="absolute"
+                style={{
+                  left: cx - HANDLE_HIT / 2,
+                  top: cy - HANDLE_HIT / 2,
+                  width: HANDLE_HIT,
+                  height: HANDLE_HIT,
+                  cursor,
+                  zIndex: 20,
+                  touchAction: "none",
+                }}
+                onPointerDown={startDrag(h)}
+              >
+                <div
+                  className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-yellow-400 bg-white"
+                  style={{ width: HANDLE_VISIBLE, height: HANDLE_VISIBLE }}
+                />
+              </div>
+            );
+          })}
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  getCroppedImg helper                                              */
+/* ------------------------------------------------------------------ */
 
 async function getCroppedImg(
   imageSrc: string,
