@@ -326,7 +326,8 @@ export function ReservationForm({ shop, art, staff }: ReservationFormProps) {
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={4}
-                className="mt-2 block w-full resize-y rounded-xl bg-neutral-100 px-3 py-3 text-base outline-none transition focus:bg-neutral-200"
+                placeholder="스퀘어로 해주세요!"
+                className="mt-2 block w-full resize-y rounded-xl bg-neutral-100 px-3 py-3 text-base outline-none transition placeholder:text-neutral-400 focus:bg-neutral-200"
               />
             </Field>
           </div>
