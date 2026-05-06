@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import Image from "next/image";
 import { Camera, Crop } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -65,6 +65,19 @@ export function ImageUpload({
   // Track the actual cropped image ratio for dynamic preview sizing
   const [croppedRatio, setCroppedRatio] = useState<number | null>(null);
 
+  // On mount, detect the existing image's aspect ratio
+  useEffect(() => {
+    if (enableCrop && currentUrl) {
+      const img = new window.Image();
+      img.onload = () => {
+        if (img.naturalWidth && img.naturalHeight) {
+          setCroppedRatio(img.naturalWidth / img.naturalHeight);
+        }
+      };
+      img.src = currentUrl;
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   async function handleFile(file: File) {
     setError(null);
     if (!ACCEPTED_MIME.includes(file.type)) {
@@ -81,10 +94,18 @@ export function ImageUpload({
       const dataUrl = await fileToDataUrl(file);
       setOriginalImageSrc(dataUrl);
       // Auto-crop centered at the given aspect ratio
-      const croppedBlob = await autoCropToAspect(dataUrl, cropAspect);
-      if (croppedBlob) {
-        setCroppedRatio(cropAspect);
-        await uploadBlob(croppedBlob);
+      try {
+        const croppedBlob = await autoCropToAspect(dataUrl, cropAspect);
+        if (croppedBlob) {
+          setCroppedRatio(cropAspect);
+          await uploadBlob(croppedBlob);
+        } else {
+          // Fallback: upload original file if crop failed
+          await uploadFile(file);
+        }
+      } catch {
+        // Fallback: upload original file if crop errored
+        await uploadFile(file);
       }
     } else {
       await uploadFile(file);

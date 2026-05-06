@@ -91,7 +91,7 @@ export function CropModal({ imageSrc, onCropDone, onClose, fixedAspect }: CropMo
           style={{
             cropAreaStyle: {
               border: "3px solid #FACC15",
-              boxShadow: "0 0 0 9999px rgba(0,0,0,0.6)",
+              boxShadow: "0 0 0 9999px rgba(0,0,0,1)",
             },
           }}
           classes={{
