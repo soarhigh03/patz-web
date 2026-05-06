@@ -355,16 +355,16 @@ export function ShopForm({
                   </Field>
                 </div>
 
-                <Field label="휴무 요일">
+                <Field label="운영 요일">
                   <div className="mt-2 flex flex-wrap gap-2">
                     {KOREAN_WEEKDAYS.map((label, i) => (
-                      <Chip
+                      <OpenDayChip
                         key={i}
-                        selected={closedWeekdays.includes(i)}
+                        selected={!closedWeekdays.includes(i)}
                         onClick={() => toggleWeekday(i)}
                       >
                         {label}
-                      </Chip>
+                      </OpenDayChip>
                     ))}
                   </div>
                 </Field>
@@ -726,6 +726,31 @@ function Chip({
         selected
           ? "border-ink bg-ink text-white"
           : "border-line bg-white text-ink hover:bg-neutral-50",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function OpenDayChip({
+  children,
+  selected,
+  onClick,
+}: {
+  children: React.ReactNode;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "h-10 w-10 rounded-full border text-sm font-medium transition",
+        selected
+          ? "border-emerald-500 bg-emerald-500 text-white"
+          : "border-line bg-white text-muted hover:bg-neutral-50",
       )}
     >
       {children}
