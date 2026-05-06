@@ -134,13 +134,14 @@ function CategorySection({
       </button>
 
       {open && (
-        <div className="grid grid-cols-2 items-start gap-3 pb-3">
+        <div className="columns-2 gap-3 pb-3">
           {arts.map((art) => (
-            <ArtTile
-              key={art.id}
-              art={art}
-              href={`/shops/${handle}/reserve/${art.service}/${art.id}`}
-            />
+            <div key={art.id} className="mb-3 break-inside-avoid">
+              <ArtTile
+                art={art}
+                href={`/shops/${handle}/reserve/${art.service}/${art.id}`}
+              />
+            </div>
           ))}
         </div>
       )}

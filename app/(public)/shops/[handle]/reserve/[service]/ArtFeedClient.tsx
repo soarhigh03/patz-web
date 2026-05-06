@@ -73,13 +73,14 @@ export function ArtFeedClient({ arts, staff, handle, service }: Props) {
             : "아직 등록된 아트가 없어요."}
         </p>
       ) : (
-        <div className="grid grid-cols-2 items-start gap-3">
+        <div className="columns-2 gap-3">
           {filteredArts.map((art) => (
-            <ArtTile
-              key={art.id}
-              art={art}
-              href={`/shops/${handle}/reserve/${service}/${art.id}`}
-            />
+            <div key={art.id} className="mb-3 break-inside-avoid">
+              <ArtTile
+                art={art}
+                href={`/shops/${handle}/reserve/${service}/${art.id}`}
+              />
+            </div>
           ))}
         </div>
       )}
