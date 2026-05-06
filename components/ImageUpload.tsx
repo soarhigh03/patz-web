@@ -62,6 +62,8 @@ export function ImageUpload({
   // For cropping: store the original full image as a data URL
   const [originalImageSrc, setOriginalImageSrc] = useState<string | null>(null);
   const [showCropModal, setShowCropModal] = useState(false);
+  // Track the actual cropped image ratio for dynamic preview sizing
+  const [croppedRatio, setCroppedRatio] = useState<number | null>(null);
 
   async function handleFile(file: File) {
     setError(null);
@@ -81,6 +83,7 @@ export function ImageUpload({
       // Auto-crop centered at the given aspect ratio
       const croppedBlob = await autoCropToAspect(dataUrl, cropAspect);
       if (croppedBlob) {
+        setCroppedRatio(cropAspect);
         await uploadBlob(croppedBlob);
       }
     } else {
@@ -159,8 +162,11 @@ export function ImageUpload({
     }
   }
 
-  function handleCropDone(croppedBlob: Blob) {
+  async function handleCropDone(croppedBlob: Blob) {
     setShowCropModal(false);
+    // Detect the cropped image's actual aspect ratio
+    const ratio = await detectBlobRatio(croppedBlob);
+    if (ratio) setCroppedRatio(ratio);
     uploadBlob(croppedBlob);
   }
 
@@ -170,9 +176,16 @@ export function ImageUpload({
       <div
         className={cn(
           "relative mt-2 overflow-hidden rounded-xl border border-line bg-neutral-100",
-          aspect === "square" ? "aspect-square" : "aspect-[5/2]",
+          !enableCrop || !croppedRatio
+            ? aspect === "square" ? "aspect-square" : "aspect-[5/2]"
+            : "",
           previewClassName ?? (aspect === "square" ? "w-32" : "w-full"),
         )}
+        style={
+          enableCrop && croppedRatio
+            ? { aspectRatio: `${croppedRatio}` }
+            : undefined
+        }
       >
         {previewUrl ? (
           <Image
@@ -291,5 +304,23 @@ async function autoCropToAspect(imageSrc: string, aspectRatio: number): Promise<
 
   return new Promise((resolve) => {
     canvas.toBlob((blob) => resolve(blob), "image/jpeg", 0.92);
+  });
+}
+
+/** Detect width/height ratio from an image Blob. */
+function detectBlobRatio(blob: Blob): Promise<number | null> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(blob);
+    const img = new window.Image();
+    img.onload = () => {
+      const ratio = img.naturalWidth / img.naturalHeight;
+      URL.revokeObjectURL(url);
+      resolve(ratio);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(null);
+    };
+    img.src = url;
   });
 }
