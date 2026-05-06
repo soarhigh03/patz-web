@@ -240,7 +240,7 @@ export function ImageUpload({
           {previewUrl ? "이미지 변경" : "이미지 업로드"}
         </button>
 
-        {enableCrop && originalImageSrc && (
+        {enableCrop && (originalImageSrc || previewUrl) && (
           <button
             type="button"
             onClick={() => setShowCropModal(true)}
@@ -267,9 +267,9 @@ export function ImageUpload({
         className="hidden"
       />
 
-      {showCropModal && originalImageSrc && (
+      {showCropModal && (originalImageSrc || previewUrl) && (
         <CropModal
-          imageSrc={originalImageSrc}
+          imageSrc={originalImageSrc ?? previewUrl!}
           onCropDone={handleCropDone}
           onClose={() => setShowCropModal(false)}
           fixedAspect={cropFixed ? cropAspect : undefined}
