@@ -33,7 +33,7 @@ export function ArtFeedClient({ arts, staff, handle, service }: Props) {
 
       {/* Staff filter pills */}
       {staff.length > 0 && (
-        <div className="mb-5 flex items-center justify-center gap-2 overflow-x-auto px-2">
+        <div className="mb-5 flex items-center justify-start gap-2 overflow-x-auto px-2">
           <button
             type="button"
             onClick={() => setSelectedStaffId(null)}
