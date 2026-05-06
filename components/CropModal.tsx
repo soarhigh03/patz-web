@@ -8,6 +8,8 @@ interface CropModalProps {
   imageSrc: string;
   onCropDone: (croppedBlob: Blob) => void;
   onClose: () => void;
+  /** When set, locks the crop area to this aspect ratio (hides ratio selector). */
+  fixedAspect?: number;
 }
 
 const ASPECT_OPTIONS = [
@@ -21,11 +23,11 @@ const ASPECT_OPTIONS = [
  * Full-screen crop modal with yellow selection box.
  * Constraint: long side / short side <= 4.
  */
-export function CropModal({ imageSrc, onCropDone, onClose }: CropModalProps) {
+export function CropModal({ imageSrc, onCropDone, onClose, fixedAspect }: CropModalProps) {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
-  const [selectedAspect, setSelectedAspect] = useState(1); // default 1:1
+  const [selectedAspect, setSelectedAspect] = useState(fixedAspect ?? 1);
 
   const onCropComplete = useCallback((_: Area, croppedPixels: Area) => {
     setCroppedAreaPixels(croppedPixels);
@@ -47,10 +49,12 @@ export function CropModal({ imageSrc, onCropDone, onClose }: CropModalProps) {
     if (blob) onCropDone(blob);
   }
 
-  // react-easy-crop: aspect=undefined or omitting it doesn't work,
-  // but a very small aspect like 0.01 or large like 100 effectively frees it.
-  // We use the prop conditionally.
-  const cropperAspect = selectedAspect === 0 ? undefined : selectedAspect;
+  // When fixedAspect is set, always use it. Otherwise allow switching.
+  const cropperAspect = fixedAspect
+    ? fixedAspect
+    : selectedAspect === 0
+      ? undefined
+      : selectedAspect;
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black/90">
@@ -96,23 +100,25 @@ export function CropModal({ imageSrc, onCropDone, onClose }: CropModalProps) {
         />
       </div>
 
-      {/* Aspect ratio presets */}
-      <div className="flex items-center justify-center gap-3 px-4 py-4">
-        {ASPECT_OPTIONS.map((opt) => (
-          <button
-            key={opt.label}
-            type="button"
-            onClick={() => setSelectedAspect(opt.value)}
-            className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition ${
-              selectedAspect === opt.value
-                ? "bg-yellow-400 text-black"
-                : "bg-white/20 text-white hover:bg-white/30"
-            }`}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
+      {/* Aspect ratio presets — hidden when aspect is fixed */}
+      {!fixedAspect && (
+        <div className="flex items-center justify-center gap-3 px-4 py-4">
+          {ASPECT_OPTIONS.map((opt) => (
+            <button
+              key={opt.label}
+              type="button"
+              onClick={() => setSelectedAspect(opt.value)}
+              className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition ${
+                selectedAspect === opt.value
+                  ? "bg-yellow-400 text-black"
+                  : "bg-white/20 text-white hover:bg-white/30"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Zoom slider */}
       <div className="flex items-center justify-center gap-3 px-8 pb-6">
@@ -129,9 +135,11 @@ export function CropModal({ imageSrc, onCropDone, onClose }: CropModalProps) {
         <span className="text-xs text-white/60">+</span>
       </div>
 
-      <p className="pb-4 text-center text-xs text-white/50">
-        긴 변이 짧은 변의 4배를 넘지 않아야 해요
-      </p>
+      {!fixedAspect && (
+        <p className="pb-4 text-center text-xs text-white/50">
+          긴 변이 짧은 변의 4배를 넘지 않아야 해요
+        </p>
+      )}
     </div>
   );
 }

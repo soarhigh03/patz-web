@@ -26,8 +26,13 @@ interface ImageUploadProps {
   onUploaded: (path: string) => Promise<void> | void;
   hint?: string;
   label?: string;
-  /** Enable cropping features (default square crop + manual crop button). */
+  /** Enable cropping features (auto crop on upload + manual crop button). */
   enableCrop?: boolean;
+  /** Aspect ratio for auto-crop on initial upload. Defaults to 1 (square). */
+  cropAspect?: number;
+  /** When true, lock the crop modal to cropAspect (hide ratio selector).
+   *  When false, show the aspect ratio selector in the crop modal. */
+  cropFixed?: boolean;
 }
 
 /**
@@ -47,6 +52,8 @@ export function ImageUpload({
   hint,
   label,
   enableCrop = false,
+  cropAspect = 1,
+  cropFixed = false,
 }: ImageUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | undefined>(currentUrl);
@@ -71,8 +78,8 @@ export function ImageUpload({
       // Store the original for crop modal use
       const dataUrl = await fileToDataUrl(file);
       setOriginalImageSrc(dataUrl);
-      // Auto square-crop (centered, shorter side = full)
-      const croppedBlob = await autoSquareCrop(dataUrl);
+      // Auto-crop centered at the given aspect ratio
+      const croppedBlob = await autoCropToAspect(dataUrl, cropAspect);
       if (croppedBlob) {
         await uploadBlob(croppedBlob);
       }
@@ -231,6 +238,7 @@ export function ImageUpload({
           imageSrc={originalImageSrc}
           onCropDone={handleCropDone}
           onClose={() => setShowCropModal(false)}
+          fixedAspect={cropFixed ? cropAspect : undefined}
         />
       )}
     </div>
@@ -247,8 +255,8 @@ function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
-/** Auto-crop to square (centered, shorter side = full extent). */
-async function autoSquareCrop(imageSrc: string): Promise<Blob | null> {
+/** Auto-crop centered at a given aspect ratio, filling as much as possible. */
+async function autoCropToAspect(imageSrc: string, aspectRatio: number): Promise<Blob | null> {
   const img = new window.Image();
   img.src = imageSrc;
   await new Promise<void>((resolve, reject) => {
@@ -256,17 +264,30 @@ async function autoSquareCrop(imageSrc: string): Promise<Blob | null> {
     img.onerror = reject;
   });
 
-  const size = Math.min(img.naturalWidth, img.naturalHeight);
-  const x = (img.naturalWidth - size) / 2;
-  const y = (img.naturalHeight - size) / 2;
+  const { naturalWidth: w, naturalHeight: h } = img;
+
+  // Determine max crop area that fits the aspect ratio
+  let cropW: number, cropH: number;
+  if (w / h > aspectRatio) {
+    // Image is wider than target — constrain by height
+    cropH = h;
+    cropW = h * aspectRatio;
+  } else {
+    // Image is taller than target — constrain by width
+    cropW = w;
+    cropH = w / aspectRatio;
+  }
+
+  const x = (w - cropW) / 2;
+  const y = (h - cropH) / 2;
 
   const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
+  canvas.width = Math.round(cropW);
+  canvas.height = Math.round(cropH);
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
 
-  ctx.drawImage(img, x, y, size, size, 0, 0, size, size);
+  ctx.drawImage(img, x, y, cropW, cropH, 0, 0, canvas.width, canvas.height);
 
   return new Promise((resolve) => {
     canvas.toBlob((blob) => resolve(blob), "image/jpeg", 0.92);

@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Bell,
   CalendarDays,
   ExternalLink,
   Images,
@@ -27,6 +28,7 @@ type NavItem = {
 
 const NAV: readonly NavItem[] = [
   { href: "/dashboard", label: "대시보드", icon: LayoutDashboard, exact: true },
+  { href: "/dashboard/requests", label: "예약 요청", icon: Bell },
   { href: "/dashboard/reservations", label: "예약 관리", icon: CalendarDays },
   { href: "/dashboard/arts", label: "아트 관리", icon: Images },
   { href: "/dashboard/shop", label: "샵 정보", icon: Store },

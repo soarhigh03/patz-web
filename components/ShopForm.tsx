@@ -193,6 +193,9 @@ export function ShopForm({
                   if (!result.ok) throw new Error(result.error);
                   router.refresh();
                 }}
+                enableCrop
+                cropAspect={3 / 1}
+                cropFixed
               />
               <ImageUpload
                 label="프로필"
@@ -206,6 +209,9 @@ export function ShopForm({
                   if (!result.ok) throw new Error(result.error);
                   router.refresh();
                 }}
+                enableCrop
+                cropAspect={1}
+                cropFixed
               />
             </div>
           </aside>
