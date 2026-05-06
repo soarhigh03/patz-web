@@ -2,9 +2,19 @@
 
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { X } from "lucide-react";
 import { ImageUpload } from "./ImageUpload";
 import { cn } from "@/lib/utils";
 import { saveArt, archiveArt, generateArtCode } from "@/app/dashboard/arts/actions";
+
+const DEFAULT_IMAGES = [
+  { path: "__default__/hand_care.webp", url: "/default_pic/hand_care.webp", label: "손 케어" },
+  { path: "__default__/foot_care.jpg", url: "/default_pic/foot_care.jpg", label: "발 케어" },
+  { path: "__default__/removal.jpg.webp", url: "/default_pic/removal.jpg.webp", label: "기존 네일 제거" },
+] as const;
+
+const DEFAULT_IMAGE_CATEGORIES = new Set(["hand-foot-care", "removal-only"]);
 
 export interface ArtFormInitial {
   /** Existing row id, or a fresh client-generated UUID for new arts. */
@@ -57,6 +67,9 @@ export function ArtForm({ initial, mode, shopId, categories, staffList }: ArtFor
   const [isThisMonth, setIsThisMonth] = useState(initial.isThisMonth);
   const [assignStaff, setAssignStaff] = useState(initial.staffIds.length > 0);
   const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>(initial.staffIds);
+  const [showDefaultPicker, setShowDefaultPicker] = useState(false);
+
+  const showDefaultImageOption = DEFAULT_IMAGE_CATEGORIES.has(categoryCode);
 
   // The image is uploaded to a path that embeds the row id, so it lands
   // on the right URL even before INSERT lands.
@@ -109,16 +122,30 @@ export function ArtForm({ initial, mode, shopId, categories, staffList }: ArtFor
       <div className="pt-8 lg:grid lg:grid-cols-[320px_minmax(0,1fr)] lg:items-start lg:gap-12">
         <div className="lg:sticky lg:top-8">
           <ImageUpload
+            key={imagePath?.startsWith("__default__") ? imagePath : "upload"}
             label="아트 사진"
             pathPrefix={`${shopId}/arts`}
             filenameBase={initial.id}
             aspect="square"
             previewClassName="w-32 lg:w-full"
-            currentUrl={initial.imageUrl}
+            currentUrl={
+              imagePath?.startsWith("__default__/")
+                ? `/default_pic/${imagePath.slice("__default__/".length)}`
+                : initial.imageUrl
+            }
             hint="JPEG / PNG / WEBP, 5MB 이하. 기본 정방형 크롭됩니다."
             onUploaded={(path) => setImagePath(path)}
             enableCrop
           />
+          {showDefaultImageOption && (
+            <button
+              type="button"
+              onClick={() => setShowDefaultPicker(true)}
+              className="mt-2 text-xs text-muted underline hover:text-ink"
+            >
+              기본 이미지에서 선택하기
+            </button>
+          )}
         </div>
 
         <div className="mt-7 space-y-7 lg:mt-0">
@@ -254,6 +281,60 @@ export function ArtForm({ initial, mode, shopId, categories, staffList }: ArtFor
         )}
         </div>
       </div>
+
+      {showDefaultPicker && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          onClick={() => setShowDefaultPicker(false)}
+        >
+          <div
+            className="relative mx-4 w-full max-w-sm rounded-2xl bg-white p-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setShowDefaultPicker(false)}
+              className="absolute right-3 top-3 rounded-full p-1 text-muted hover:text-ink"
+            >
+              <X size={18} />
+            </button>
+            <h3 className="mb-4 text-center text-sm font-semibold">
+              기본 이미지 선택
+            </h3>
+            <div className="grid grid-cols-3 gap-3">
+              {DEFAULT_IMAGES.map((img) => (
+                <button
+                  key={img.path}
+                  type="button"
+                  onClick={() => {
+                    setImagePath(img.path);
+                    setShowDefaultPicker(false);
+                  }}
+                  className={cn(
+                    "overflow-hidden rounded-xl border-2 transition",
+                    imagePath === img.path
+                      ? "border-ink"
+                      : "border-transparent hover:border-neutral-300",
+                  )}
+                >
+                  <div className="relative aspect-square w-full bg-neutral-100">
+                    <Image
+                      src={img.url}
+                      alt={img.label}
+                      fill
+                      className="object-cover"
+                      sizes="120px"
+                    />
+                  </div>
+                  <p className="py-1.5 text-center text-xs font-medium">
+                    {img.label}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   );
 }

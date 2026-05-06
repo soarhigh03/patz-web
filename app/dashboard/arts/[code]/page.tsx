@@ -80,7 +80,9 @@ export default async function EditArtPage({ params }: Params) {
   );
 
   const imageUrl = art.image_path
-    ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/shop-assets/${art.image_path}`
+    ? art.image_path.startsWith("__default__/")
+      ? `/default_pic/${art.image_path.slice("__default__/".length)}`
+      : `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/shop-assets/${art.image_path}`
     : undefined;
 
   return (

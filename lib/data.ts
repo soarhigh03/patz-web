@@ -68,6 +68,9 @@ function shopImageWithDims(
   storagePath: string | null,
   mockBasename: string,
 ): { url?: string; width?: number; height?: number } {
+  if (storagePath?.startsWith("__default__/")) {
+    return { url: `/default_pic/${storagePath.slice("__default__/".length)}` };
+  }
   if (storagePath) return { url: storagePublicUrl("shop-assets", storagePath) };
   const mock = resolveMockAsset(mockBasename);
   return mock

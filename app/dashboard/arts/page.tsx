@@ -162,5 +162,8 @@ function BackLink() {
 
 function storageUrl(path: string | null): string | undefined {
   if (!path) return undefined;
+  if (path.startsWith("__default__/")) {
+    return `/default_pic/${path.slice("__default__/".length)}`;
+  }
   return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/shop-assets/${path}`;
 }
