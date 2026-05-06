@@ -50,8 +50,8 @@ export function ShopForm({
   const [mapBadge, setMapBadge] = useState(initial.mapBadge ?? "");
 
   const [hoursMode, setHoursMode] = useState<HoursMode>(initial.hoursMode);
-  const [hoursOpen, setHoursOpen] = useState(initial.hoursOpen ?? "");
-  const [hoursClose, setHoursClose] = useState(initial.hoursClose ?? "");
+  const [hoursOpen, setHoursOpen] = useState(initial.hoursOpen ?? "11:00");
+  const [hoursClose, setHoursClose] = useState(initial.hoursClose ?? "20:00");
   const [closedWeekdays, setClosedWeekdays] = useState<number[]>(
     initial.closedWeekdays,
   );
@@ -59,10 +59,10 @@ export function ShopForm({
     Boolean(initial.hoursBreakStart || initial.hoursBreakEnd),
   );
   const [hoursBreakStart, setHoursBreakStart] = useState(
-    initial.hoursBreakStart ?? "",
+    initial.hoursBreakStart ?? "14:00",
   );
   const [hoursBreakEnd, setHoursBreakEnd] = useState(
-    initial.hoursBreakEnd ?? "",
+    initial.hoursBreakEnd ?? "15:00",
   );
   const [hoursPerWeekday, setHoursPerWeekday] = useState<HoursPerWeekday>(
     initial.hoursPerWeekday,
