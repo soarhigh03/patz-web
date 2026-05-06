@@ -138,10 +138,22 @@ export function ReservationForm({ shop, art, staff }: ReservationFormProps) {
 
   // Validation per step. Step 1 needs everything required to compute
   // duration + identify the customer; step 2 just needs date + time.
+  // Phone format check mirrors the server regex (^010\d{7,8}$) so the
+  // mismatch surfaces here at the step-1 → step-2 boundary instead of only
+  // after the user lands on step 2 and hits 예약하기.
+  const phoneFilled =
+    phone1.length >= 3 && phone2.length >= 3 && phone3.length >= 4;
+  const phoneFormatInvalid =
+    phoneFilled && !/^010\d{7,8}$/.test(phone1 + phone2 + phone3);
+
   const step1Missing: string[] = [];
+  const step1FormatErrors: string[] = [];
   if (!name.trim()) step1Missing.push("이름");
-  if (phone1.length < 3 || phone2.length < 3 || phone3.length < 4)
-    step1Missing.push("전화번호");
+  if (!phoneFilled) step1Missing.push("전화번호");
+  else if (phoneFormatInvalid)
+    step1FormatErrors.push(
+      "전화번호 형식이 올바르지 않아요. 010으로 시작하는 휴대폰 번호를 입력해주세요.",
+    );
   if (staffId === null) step1Missing.push("쌤");
   if (!gelOtherRemoval && !gelSelfRemoval && !gelNoRemoval)
     step1Missing.push("제거 여부");
@@ -150,9 +162,11 @@ export function ReservationForm({ shop, art, staff }: ReservationFormProps) {
   if (date === null) step2Missing.push("예약 날짜");
   if (time === null) step2Missing.push("예약 시간");
 
-  const step1Valid = step1Missing.length === 0;
+  const step1Valid =
+    step1Missing.length === 0 && step1FormatErrors.length === 0;
   const step2Valid = step2Missing.length === 0;
   const missing = step === 1 ? step1Missing : step2Missing;
+  const formatErrors = step === 1 ? step1FormatErrors : [];
   const canAdvance = step === 1 ? step1Valid : step1Valid && step2Valid;
 
   function handleSubmit(e: React.FormEvent) {
@@ -415,6 +429,11 @@ export function ReservationForm({ shop, art, staff }: ReservationFormProps) {
           입력 필요: {missing.join(", ")}
         </p>
       )}
+      {formatErrors.map((err) => (
+        <p key={err} className="px-6 pt-2 text-center text-xs text-accent">
+          {err}
+        </p>
+      ))}
       {submitError && (
         <p className="px-6 pt-2 text-center text-xs text-accent">
           {submitError}
