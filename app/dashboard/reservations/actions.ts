@@ -20,6 +20,9 @@ export type ReservationActionResult =
 async function setReservationStatus(
   reservationId: string,
   next: Extract<ReservationStatus, "confirmed" | "rejected">,
+  /** Optional staff_id assignment, used when accepting a 상관없음 request —
+   *  the owner picks which 쌤 will take it from those free at the slot. */
+  staffId?: string | null,
 ): Promise<ReservationActionResult> {
   const supabase = await createClient();
 
@@ -30,18 +33,37 @@ async function setReservationStatus(
 
   const { data: existing } = await supabase
     .from("reservations")
-    .select("id, status")
+    .select("id, status, staff_id")
     .eq("id", reservationId)
     .maybeSingle();
-  const row = existing as { id: string; status: ReservationStatus } | null;
+  const row = existing as
+    | { id: string; status: ReservationStatus; staff_id: string | null }
+    | null;
   if (!row) return { ok: false, error: "예약을 찾을 수 없어요." };
   if (row.status !== "pending") {
     return { ok: false, error: "이미 처리된 예약이에요." };
   }
 
+  // Accept-with-staff: if the request came in as 상관없음 (staff_id null) the
+  // owner must pin a 쌤 before confirming, so a downstream timetable tab
+  // actually has somewhere to show it. Pre-assigned requests keep the
+  // customer's pick — we don't let owners reassign mid-accept.
+  const update: { status: ReservationStatus; staff_id?: string } = {
+    status: next,
+  };
+  if (next === "confirmed" && row.staff_id === null) {
+    if (!staffId) {
+      return {
+        ok: false,
+        error: "상관없음 예약은 수락할 때 쌤을 선택해야 해요.",
+      };
+    }
+    update.staff_id = staffId;
+  }
+
   const { error } = await supabase
     .from("reservations")
-    .update({ status: next })
+    .update(update)
     .eq("id", reservationId);
   if (error) return { ok: false, error: error.message };
 
@@ -51,8 +73,9 @@ async function setReservationStatus(
 
 export async function acceptReservation(
   reservationId: string,
+  staffId?: string | null,
 ): Promise<ReservationActionResult> {
-  return setReservationStatus(reservationId, "confirmed");
+  return setReservationStatus(reservationId, "confirmed", staffId);
 }
 
 export async function rejectReservation(

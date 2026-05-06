@@ -396,6 +396,7 @@ export async function listShopReservations(
       artImageUrl: img.url,
       serviceCategoryCode: r.service_categories?.code ?? null,
       serviceCategoryName: r.service_categories?.name ?? null,
+      staffId: r.staff_id,
       staffName: r.staff?.name ?? null,
       totalPrice: r.total_price,
       depositAmount: r.deposit_amount,

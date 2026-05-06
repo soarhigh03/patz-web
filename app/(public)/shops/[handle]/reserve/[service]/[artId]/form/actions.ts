@@ -139,12 +139,16 @@ export interface BusyInterval {
   start: number;
   /** Minutes-of-day at appointment end (exclusive). */
   end: number;
+  /** Which 쌤 owns this slot, or null when the booking is still unassigned
+   *  (a 상관없음 pending request). */
+  staffId: string | null;
 }
 
 /**
  * Returns busy windows for the (shop, date) — both pending and confirmed
- * reservations. Customer-facing: the `get_busy_intervals` RPC bypasses RLS
- * but only exposes minutes-of-day (no PII).
+ * reservations, annotated with which 쌤 each one belongs to. Customer-facing:
+ * the `get_busy_intervals` RPC bypasses RLS but only exposes minutes-of-day
+ * + staff_id (no customer PII).
  */
 export async function getBusyIntervals(
   shopHandle: string,
@@ -168,8 +172,15 @@ export async function getBusyIntervals(
   });
   if (error || !data) return [];
 
-  return (data as { start_minutes: number; end_minutes: number }[]).map((r) => ({
+  return (
+    data as {
+      start_minutes: number;
+      end_minutes: number;
+      staff_id: string | null;
+    }[]
+  ).map((r) => ({
     start: r.start_minutes,
     end: r.end_minutes,
+    staffId: r.staff_id,
   }));
 }

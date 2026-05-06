@@ -132,6 +132,7 @@ export interface ShopReservation {
   serviceCategoryCode: string | null;
   serviceCategoryName: string | null;
   /** null = "상관없음" at booking time, OR specific staff was archived. */
+  staffId: string | null;
   staffName: string | null;
 
   totalPrice: number | null;

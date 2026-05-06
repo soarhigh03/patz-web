@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { listShopReservations } from "@/lib/data";
+import { listShopReservations, listStaff } from "@/lib/data";
 import { ReservationTimetable } from "@/components/ReservationTimetable";
 import { ManualReservationButton } from "./ManualReservationButton";
 import type { Weekday } from "@/lib/types";
@@ -46,9 +46,12 @@ export default async function DashboardReservationsPage() {
     );
   }
 
-  const reservations = await listShopReservations(shop.id, shop.handle, {
-    statuses: ["pending", "confirmed"],
-  });
+  const [reservations, staff] = await Promise.all([
+    listShopReservations(shop.id, shop.handle, {
+      statuses: ["pending", "confirmed"],
+    }),
+    listStaff(shop.handle),
+  ]);
 
   const pendingCount = reservations.filter((r) => r.status === "pending").length;
   const confirmedCount = reservations.length - pendingCount;
@@ -83,6 +86,7 @@ export default async function DashboardReservationsPage() {
         <ReservationTimetable
           reservations={reservations}
           shopHours={shopHours}
+          staff={staff}
         />
       </section>
     </main>

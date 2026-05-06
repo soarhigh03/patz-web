@@ -92,6 +92,13 @@ export function ReservationForm({ shop, art, staff }: ReservationFormProps) {
   // Derive the 30-min slot grid for the selected date. Updates whenever the
   // chosen options shift duration, so a slot that fit at 60min may be 불가 at
   // 90min.
+  // Slot grid is staff-aware:
+  //   - specific 쌤 selected → only that 쌤's busy windows count
+  //   - "상관없음" or none yet → slot is free as long as ≥1 쌤 has no
+  //     conflict (union of per-staff availability)
+  // Unassigned (staff_id = null) bookings are not pre-blocked — the owner
+  // resolves them at accept-time.
+  const allStaffIds = useMemo(() => staff.map((s) => s.id), [staff]);
   const slots = useMemo(
     () =>
       date
@@ -100,10 +107,13 @@ export function ReservationForm({ shop, art, staff }: ReservationFormProps) {
             date,
             durationMinutes,
             busyIntervals,
+            allStaffIds,
+            selectedStaffId:
+              staffId === null || staffId === ANY_STAFF ? null : staffId,
             now: new Date(),
           })
         : [],
-    [date, shop.hours, durationMinutes, busyIntervals],
+    [date, shop.hours, durationMinutes, busyIntervals, allStaffIds, staffId],
   );
 
   // If the previously-selected time is no longer available (options changed
@@ -591,12 +601,19 @@ function deriveSlots({
   date,
   durationMinutes,
   busyIntervals,
+  allStaffIds,
+  selectedStaffId,
   now,
 }: {
   shopHours: Shop["hours"];
   date: Date;
   durationMinutes: number;
   busyIntervals: BusyInterval[];
+  /** All active staff IDs at the shop. Used to compute "상관없음" availability
+   *  as a union — a slot is free when ≥1 staff has no conflict. */
+  allStaffIds: string[];
+  /** Specific 쌤 the customer picked, or null for 상관없음 / not yet chosen. */
+  selectedStaffId: string | null;
   now: Date;
 }): DerivedSlot[] {
   const openMin = parseHHmm(shopHours.open);
@@ -609,6 +626,24 @@ function deriveSlots({
     date.getMonth() === now.getMonth() &&
     date.getDate() === now.getDate();
   const nowMin = isToday ? now.getHours() * 60 + now.getMinutes() : -1;
+
+  // For "상관없음" we need to know which staff are blocked at each slot, so
+  // pre-bucket the assigned intervals by staff_id. Unassigned (null) intervals
+  // are intentionally ignored — the owner resolves those when accepting, so
+  // pre-blocking would over-count capacity.
+  const intervalsByStaff = new Map<string, BusyInterval[]>();
+  for (const b of busyIntervals) {
+    if (b.staffId === null) continue;
+    const arr = intervalsByStaff.get(b.staffId);
+    if (arr) arr.push(b);
+    else intervalsByStaff.set(b.staffId, [b]);
+  }
+
+  function staffFreeAt(staffId: string, s: number, e: number): boolean {
+    const arr = intervalsByStaff.get(staffId);
+    if (!arr) return true;
+    return !arr.some((b) => s < b.end && b.start < e);
+  }
 
   const slots: DerivedSlot[] = [];
   for (let s = openMin; s + SLOT_INTERVAL_MIN <= closeMin; s += SLOT_INTERVAL_MIN) {
@@ -624,8 +659,17 @@ function deriveSlots({
       breakStart < e
     )
       available = false;
-    else if (busyIntervals.some((b) => s < b.end && b.start < e))
-      available = false;
+    else if (selectedStaffId !== null) {
+      // Specific 쌤: only their own bookings block the slot.
+      if (!staffFreeAt(selectedStaffId, s, e)) available = false;
+    } else if (allStaffIds.length === 0) {
+      // Edge case: shop with no staff registered yet. Treat any reservation
+      // as a block so the slot grid still respects existing bookings.
+      if (busyIntervals.some((b) => s < b.end && b.start < e)) available = false;
+    } else {
+      // 상관없음: at least one 쌤 must be free across [s, e).
+      if (!allStaffIds.some((id) => staffFreeAt(id, s, e))) available = false;
+    }
 
     slots.push({ time: toHHmm(s), available });
   }

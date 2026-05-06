@@ -167,7 +167,11 @@ export interface Database {
       };
       get_busy_intervals: {
         Args: { p_shop_id: string; p_date: string };
-        Returns: { start_minutes: number; end_minutes: number }[];
+        Returns: {
+          start_minutes: number;
+          end_minutes: number;
+          staff_id: string | null;
+        }[];
       };
     };
     Enums: {

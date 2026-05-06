@@ -10,7 +10,7 @@ import {
   acceptReservation,
   rejectReservation,
 } from "@/app/dashboard/reservations/actions";
-import type { ShopReservation } from "@/lib/types";
+import type { ShopReservation, StaffSeed } from "@/lib/types";
 
 interface ShopHours {
   open: string; // "HH:mm"
@@ -24,9 +24,15 @@ interface ShopHours {
 interface ReservationTimetableProps {
   reservations: ShopReservation[];
   shopHours: ShopHours;
+  /** Active staff at the shop. Drives the per-staff tabs and the accept-time
+   *  picker for 상관없음 requests. */
+  staff: StaffSeed[];
 }
 
 const KOREAN_WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
+
+const ALL_TAB = "__all__" as const;
+type StaffTab = string | typeof ALL_TAB;
 
 /**
  * Shop dashboard timetable.
@@ -36,13 +42,20 @@ const KOREAN_WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
  *   - Mobile (`<lg`): day pager. Existing UX, one day at a time.
  *   - PC (`>=lg`): weekly grid. 7 day-columns × 30-min rows on one screen.
  *
+ * Per-staff tabs above both views narrow the timetable to a single 쌤's
+ * schedule. The "전체" tab is the only place unassigned (상관없음) pending
+ * requests appear — they have to be pinned to a specific 쌤 at accept-time
+ * before they can land in a per-staff column.
+ *
  * Both share the modal + accept/reject card so logic stays in one place.
  */
 export function ReservationTimetable({
   reservations,
   shopHours,
+  staff,
 }: ReservationTimetableProps) {
   const [selected, setSelected] = useState<ShopReservation | null>(null);
+  const [activeTab, setActiveTab] = useState<StaffTab>(ALL_TAB);
 
   useEffect(() => {
     if (!selected) return;
@@ -53,18 +66,34 @@ export function ReservationTimetable({
     return () => window.removeEventListener("keydown", onKey);
   }, [selected]);
 
+  // Filter reservations to the active tab. Specific 쌤 tabs only show
+  // bookings whose staff_id matches; unassigned pending bookings live in
+  // 전체 only — exposing them under any specific 쌤 would falsely commit
+  // them to that 쌤 visually.
+  const visibleReservations =
+    activeTab === ALL_TAB
+      ? reservations
+      : reservations.filter((r) => r.staffId === activeTab);
+
   return (
     <>
+      <StaffTabs
+        staff={staff}
+        active={activeTab}
+        onChange={setActiveTab}
+        reservations={reservations}
+      />
+
       <div className="lg:hidden">
         <DayView
-          reservations={reservations}
+          reservations={visibleReservations}
           shopHours={shopHours}
           onOpen={setSelected}
         />
       </div>
       <div className="hidden lg:block">
         <WeekView
-          reservations={reservations}
+          reservations={visibleReservations}
           shopHours={shopHours}
           onOpen={setSelected}
         />
@@ -74,9 +103,101 @@ export function ReservationTimetable({
         <ReservationDetailModal
           reservation={selected}
           onClose={() => setSelected(null)}
+          staff={staff}
+          allReservations={reservations}
         />
       )}
     </>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Per-staff tabs                                                            */
+/* -------------------------------------------------------------------------- */
+
+function StaffTabs({
+  staff,
+  active,
+  onChange,
+  reservations,
+}: {
+  staff: StaffSeed[];
+  active: StaffTab;
+  onChange: (tab: StaffTab) => void;
+  reservations: ShopReservation[];
+}) {
+  // Pending-request counter per tab — surfaces "이 쌤 앞으로 들어온 요청이
+  // 있다"는 신호 at a glance. Unassigned pendings count under 전체 only.
+  const pendingByStaff = new Map<string, number>();
+  let pendingAll = 0;
+  for (const r of reservations) {
+    if (r.status !== "pending") continue;
+    pendingAll++;
+    if (r.staffId !== null) {
+      pendingByStaff.set(r.staffId, (pendingByStaff.get(r.staffId) ?? 0) + 1);
+    }
+  }
+
+  // No staff registered yet → no point in showing tabs at all.
+  if (staff.length === 0) return null;
+
+  return (
+    <div className="mb-4 flex flex-wrap gap-2">
+      <TabPill
+        label="전체"
+        count={pendingAll}
+        selected={active === ALL_TAB}
+        onClick={() => onChange(ALL_TAB)}
+      />
+      {staff.map((s) => (
+        <TabPill
+          key={s.id}
+          label={s.name}
+          count={pendingByStaff.get(s.id) ?? 0}
+          selected={active === s.id}
+          onClick={() => onChange(s.id)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function TabPill({
+  label,
+  count,
+  selected,
+  onClick,
+}: {
+  label: string;
+  count: number;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm transition",
+        selected
+          ? "border-ink bg-ink text-white"
+          : "border-line bg-white text-ink hover:bg-neutral-50",
+      )}
+    >
+      {label}
+      {count > 0 && (
+        <span
+          className={cn(
+            "rounded-full px-1.5 text-[10px] font-medium tabular-nums",
+            selected
+              ? "bg-white/20 text-white"
+              : "bg-amber-200 text-amber-900",
+          )}
+        >
+          {count}
+        </span>
+      )}
+    </button>
   );
 }
 
@@ -481,6 +602,9 @@ function ReservationCard({
   }
 
   const isPendingStatus = r.status === "pending";
+  // 상관없음 pendings need staff selection before accept — that picker UI
+  // lives in the detail modal, so the inline button just opens it.
+  const needsStaffAssign = isPendingStatus && r.staffId === null;
 
   return (
     <div
@@ -524,15 +648,30 @@ function ReservationCard({
 
       {isPendingStatus && (
         <div className="mt-2 flex shrink-0 gap-2">
-          <button
-            type="button"
-            onClick={(e) => handle("accept", e)}
-            disabled={isPending}
-            className="flex flex-1 items-center justify-center gap-1 rounded-md bg-ink px-2 py-1.5 text-xs font-medium text-white transition hover:opacity-90 disabled:opacity-50"
-          >
-            <Check size={13} />
-            수락
-          </button>
+          {needsStaffAssign ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpen(r);
+              }}
+              disabled={isPending}
+              className="flex flex-1 items-center justify-center gap-1 rounded-md bg-ink px-2 py-1.5 text-xs font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+            >
+              <Check size={13} />
+              쌤 지정해서 수락
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={(e) => handle("accept", e)}
+              disabled={isPending}
+              className="flex flex-1 items-center justify-center gap-1 rounded-md bg-ink px-2 py-1.5 text-xs font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+            >
+              <Check size={13} />
+              수락
+            </button>
+          )}
           <button
             type="button"
             onClick={(e) => handle("reject", e)}
@@ -596,9 +735,16 @@ function WeekReservationCard({
 function ReservationDetailModal({
   reservation: r,
   onClose,
+  staff,
+  allReservations,
 }: {
   reservation: ShopReservation;
   onClose: () => void;
+  staff: StaffSeed[];
+  /** Full unfiltered reservation list. Used to compute which 쌤 are free at
+   *  this slot when the request is 상관없음 — we filter against confirmed +
+   *  pending bookings already pinned to specific 쌤s. */
+  allReservations: ShopReservation[];
 }) {
   const [isPending, startTransition] = useTransition();
   const [actionError, setActionError] = useState<string | null>(null);
@@ -611,12 +757,15 @@ function ReservationDetailModal({
     };
   }, []);
 
-  function handle(action: "accept" | "reject") {
+  function handle(
+    action: "accept" | "reject",
+    staffIdForAccept?: string,
+  ) {
     setActionError(null);
     startTransition(async () => {
       const result =
         action === "accept"
-          ? await acceptReservation(r.id)
+          ? await acceptReservation(r.id, staffIdForAccept ?? null)
           : await rejectReservation(r.id);
       if (!result.ok) {
         setActionError(result.error);
@@ -625,6 +774,11 @@ function ReservationDetailModal({
       onClose();
     });
   }
+
+  const needsStaffAssign = r.status === "pending" && r.staffId === null;
+  const availableStaff = needsStaffAssign
+    ? getAvailableStaffAt(r, allReservations, staff)
+    : staff;
 
   return (
     <div
@@ -749,26 +903,68 @@ function ReservationDetailModal({
           )}
 
           {r.status === "pending" && (
-            <div className="flex gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => handle("reject")}
-                disabled={isPending}
-                className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-line bg-white px-3 py-2.5 text-sm font-medium text-ink transition hover:bg-neutral-50 disabled:opacity-50"
-              >
-                <X size={14} />
-                거절
-              </button>
-              <button
-                type="button"
-                onClick={() => handle("accept")}
-                disabled={isPending}
-                className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-ink px-3 py-2.5 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
-              >
-                <Check size={14} />
-                수락
-              </button>
-            </div>
+            needsStaffAssign ? (
+              <div className="space-y-3 pt-1">
+                <div>
+                  <p className="text-xs font-medium text-muted">
+                    수락할 쌤 선택
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-muted">
+                    상관없음으로 들어온 요청이라 쌤을 지정해야 수락할 수
+                    있어요.
+                  </p>
+                  {availableStaff.length === 0 ? (
+                    <p className="mt-2 text-xs text-accent">
+                      이 시간에 가능한 쌤이 없어요.
+                    </p>
+                  ) : (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {availableStaff.map((s) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => handle("accept", s.id)}
+                          disabled={isPending}
+                          className="rounded-full border border-line bg-white px-3.5 py-1.5 text-sm transition hover:border-ink hover:bg-ink hover:text-white disabled:opacity-50"
+                        >
+                          {s.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handle("reject")}
+                  disabled={isPending}
+                  className="flex w-full items-center justify-center gap-1 rounded-lg border border-line bg-white px-3 py-2.5 text-sm font-medium text-ink transition hover:bg-neutral-50 disabled:opacity-50"
+                >
+                  <X size={14} />
+                  거절
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => handle("reject")}
+                  disabled={isPending}
+                  className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-line bg-white px-3 py-2.5 text-sm font-medium text-ink transition hover:bg-neutral-50 disabled:opacity-50"
+                >
+                  <X size={14} />
+                  거절
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handle("accept")}
+                  disabled={isPending}
+                  className="flex flex-1 items-center justify-center gap-1 rounded-lg bg-ink px-3 py-2.5 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+                >
+                  <Check size={14} />
+                  수락
+                </button>
+              </div>
+            )
           )}
           {actionError && (
             <p className="text-center text-xs text-accent">{actionError}</p>
@@ -849,6 +1045,36 @@ function formatPhone(digits: string): string {
   return digits.length === 11
     ? `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`
     : `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
+/**
+ * Returns the 쌤 who have no scheduling conflict with the given (date, time,
+ * duration) — used by the modal's accept-time picker for 상관없음 requests.
+ *
+ * A 쌤 is "free" when no other pending/confirmed reservation on the same date
+ * has staff_id = that 쌤 AND overlaps [time, time+duration). Unassigned
+ * bookings (staff_id null) other than the one being accepted don't count —
+ * they'll get pinned the same way and the system surfaces conflicts row by
+ * row, not pre-emptively.
+ */
+function getAvailableStaffAt(
+  target: ShopReservation,
+  allReservations: ShopReservation[],
+  staff: StaffSeed[],
+): StaffSeed[] {
+  const start = parseHHmm(target.reservationTime);
+  const end = start + target.durationMinutes;
+
+  return staff.filter((s) =>
+    !allReservations.some((r) => {
+      if (r.id === target.id) return false;
+      if (r.staffId !== s.id) return false;
+      if (r.reservationDate !== target.reservationDate) return false;
+      const rStart = parseHHmm(r.reservationTime);
+      const rEnd = rStart + r.durationMinutes;
+      return start < rEnd && rStart < end;
+    }),
+  );
 }
 
 function parseHHmm(s: string): number {
