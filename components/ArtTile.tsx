@@ -3,10 +3,12 @@ import Link from "next/link";
 import type { Art } from "@/lib/types";
 
 /**
- * Tile in the 2-column feed (Image #3). Renders the art image at the column's
- * full width, with height derived from the image's natural aspect ratio (read
- * server-side via `image-size`). When the image isn't available yet, falls
- * back to a square gray placeholder.
+ * Tile in the 2-column feed. Renders the art image at the column's full width,
+ * with height derived from the image's natural aspect ratio.
+ * - When dimensions are known (mock data): next/image with width/height (no CLS).
+ * - When only URL exists (DB / Storage): plain <img> so the browser resolves
+ *   the natural ratio automatically.
+ * - No image at all: square gray placeholder.
  */
 export function ArtTile({ art, href }: { art: Art; href: string }) {
   return (
@@ -18,6 +20,13 @@ export function ArtTile({ art, href }: { art: Art; href: string }) {
           width={art.imageWidth}
           height={art.imageHeight}
           sizes="(max-width: 430px) 50vw, 215px"
+          className="block h-auto w-full"
+        />
+      ) : art.imageUrl ? (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          src={art.imageUrl}
+          alt={art.name}
           className="block h-auto w-full"
         />
       ) : (
