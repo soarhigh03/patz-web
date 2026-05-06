@@ -165,3 +165,51 @@ function friendlyArtError(msg: string): string {
   }
   return msg;
 }
+
+/**
+ * Generate an art code based on current month + auto-increment.
+ * Format: may-1, may-2, ... (English month abbreviation + number)
+ */
+export async function generateArtCode(): Promise<string> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return "";
+
+  const { data: shopRow } = await supabase
+    .from("shops")
+    .select("id")
+    .eq("owner_id", user.id)
+    .maybeSingle();
+  const shop = shopRow as { id: string } | null;
+  if (!shop) return "";
+
+  const months = [
+    "jan", "feb", "mar", "apr", "may", "jun",
+    "jul", "aug", "sep", "oct", "nov", "dec",
+  ];
+  const now = new Date();
+  const monthPrefix = months[now.getMonth()];
+
+  // Find the highest existing number for this month prefix
+  const { data: existing } = await supabase
+    .from("arts")
+    .select("code")
+    .eq("shop_id", shop.id)
+    .like("code", `${monthPrefix}-%`);
+
+  let maxNum = 0;
+  if (existing) {
+    for (const row of existing) {
+      const match = row.code.match(new RegExp(`^${monthPrefix}-(\\d+)$`));
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNum) maxNum = num;
+      }
+    }
+  }
+
+  return `${monthPrefix}-${maxNum + 1}`;
+}
