@@ -4,6 +4,8 @@ import { ChevronLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { listShopReservations } from "@/lib/data";
 import { ReservationTimetable } from "@/components/ReservationTimetable";
+import { ManualReservationButton } from "./ManualReservationButton";
+import type { Weekday } from "@/lib/types";
 
 export default async function DashboardReservationsPage() {
   const supabase = await createClient();
@@ -51,26 +53,36 @@ export default async function DashboardReservationsPage() {
   const pendingCount = reservations.filter((r) => r.status === "pending").length;
   const confirmedCount = reservations.length - pendingCount;
 
+  const shopHours = {
+    open: trimSeconds(shop.hours_open) ?? "10:00",
+    close: trimSeconds(shop.hours_close) ?? "20:00",
+    breakStart: trimSeconds(shop.hours_break_start),
+    breakEnd: trimSeconds(shop.hours_break_end),
+    closedWeekdays: ((shop.closed_weekdays ?? []) as number[]).map(
+      (n) => n as Weekday,
+    ),
+  };
+
   return (
     <main className="min-h-dvh px-6 pt-12 pb-10">
       <BackLink />
-      <header className="mt-6 lg:mt-0">
-        <h1 className="text-2xl font-semibold tracking-tight">예약 관리</h1>
-        <p className="mt-1 text-sm text-muted">
-          {shop.name} · 요청 {pendingCount}건 · 확정 {confirmedCount}건
-        </p>
+      <header className="mt-6 flex items-start justify-between gap-3 lg:mt-0">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">예약 관리</h1>
+          <p className="mt-1 text-sm text-muted">
+            {shop.name} · 요청 {pendingCount}건 · 확정 {confirmedCount}건
+          </p>
+        </div>
+        <ManualReservationButton
+          shopHandle={shop.handle}
+          shopHours={shopHours}
+        />
       </header>
 
       <section className="mt-8">
         <ReservationTimetable
           reservations={reservations}
-          shopHours={{
-            open: trimSeconds(shop.hours_open) ?? "10:00",
-            close: trimSeconds(shop.hours_close) ?? "20:00",
-            breakStart: trimSeconds(shop.hours_break_start),
-            breakEnd: trimSeconds(shop.hours_break_end),
-            closedWeekdays: (shop.closed_weekdays ?? []) as number[],
-          }}
+          shopHours={shopHours}
         />
       </section>
     </main>

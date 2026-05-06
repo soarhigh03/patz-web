@@ -121,20 +121,21 @@ export interface ShopReservation {
   reservationTime: string;
   durationMinutes: number;
 
-  customerName: string;
-  /** 010xxxxxxxx — formatter belongs to the renderer. */
-  customerPhone: string;
+  /** null on is_manual rows (blockouts entered by the owner without details). */
+  customerName: string | null;
+  /** 010xxxxxxxx — formatter belongs to the renderer. null on manual rows. */
+  customerPhone: string | null;
   depositorName: string | null;
 
-  artName: string;
+  artName: string | null;
   artImageUrl?: string;
-  serviceCategoryCode: string;
-  serviceCategoryName: string;
+  serviceCategoryCode: string | null;
+  serviceCategoryName: string | null;
   /** null = "상관없음" at booking time, OR specific staff was archived. */
   staffName: string | null;
 
-  totalPrice: number;
-  depositAmount: number;
+  totalPrice: number | null;
+  depositAmount: number | null;
   depositPaidAt: string | null;
 
   gelSelfRemoval: boolean;
@@ -144,6 +145,9 @@ export interface ShopReservation {
 
   /** "pending" or "confirmed" — only these two reach the dashboard view. */
   status: "pending" | "confirmed";
+  /** True when the owner inserted this directly via the dashboard's quick-add
+   *  flow (pre-existing booking, no customer-facing form). */
+  isManual: boolean;
 }
 
 /** What each `public/mockups/<handle>/mockup.ts` must export. */

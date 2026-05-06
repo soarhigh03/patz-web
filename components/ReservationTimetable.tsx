@@ -503,14 +503,23 @@ function ReservationCard({
               요청
             </span>
           )}
-          <span className="truncate text-sm font-medium">{r.customerName}</span>
+          {r.isManual && (
+            <span className="rounded-full bg-neutral-200 px-2 py-0.5 text-[10px] font-medium text-muted">
+              수동
+            </span>
+          )}
+          <span className="truncate text-sm font-medium">
+            {r.customerName ?? "수동 추가"}
+          </span>
           <span className="ml-auto shrink-0 text-xs text-muted">
             {formatDurationKR(r.durationMinutes)}
           </span>
         </div>
-        <div className="mt-0.5 truncate text-xs text-muted">
-          {r.serviceCategoryName || r.artName}
-        </div>
+        {(r.serviceCategoryName || r.artName) && (
+          <div className="mt-0.5 truncate text-xs text-muted">
+            {r.serviceCategoryName || r.artName}
+          </div>
+        )}
       </button>
 
       {isPendingStatus && (
@@ -574,9 +583,11 @@ function WeekReservationCard({
           {r.reservationTime}
         </span>
       </div>
-      <span className="truncate text-xs font-medium">{r.customerName}</span>
+      <span className="truncate text-xs font-medium">
+        {r.customerName ?? "수동 추가"}
+      </span>
       <span className="truncate text-[10px] text-muted">
-        {r.serviceCategoryName || r.artName}
+        {r.serviceCategoryName || r.artName || (r.isManual ? "직접 입력" : "")}
       </span>
     </button>
   );
@@ -639,30 +650,39 @@ function ReservationDetailModal({
           <div className="relative aspect-square w-full bg-neutral-100">
             <Image
               src={r.artImageUrl}
-              alt={r.artName}
+              alt={r.artName ?? ""}
               fill
               className="object-cover"
               sizes="(max-width: 640px) 100vw, 28rem"
               unoptimized
             />
           </div>
-        ) : (
+        ) : !r.isManual ? (
           <div className="flex aspect-square w-full items-center justify-center bg-neutral-100 text-sm text-muted">
             아트 사진 없음
           </div>
-        )}
+        ) : null}
 
         <div className="space-y-5 px-5 pb-6 pt-5">
           <header>
             <div className="flex items-center gap-2">
-              <p className="text-xs text-muted">{r.serviceCategoryName}</p>
+              {r.serviceCategoryName && (
+                <p className="text-xs text-muted">{r.serviceCategoryName}</p>
+              )}
+              {r.isManual && (
+                <span className="rounded-full bg-neutral-200 px-2 py-0.5 text-[10px] font-medium text-muted">
+                  사장님 직접 입력
+                </span>
+              )}
               {r.status === "pending" && (
                 <span className="rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-medium text-amber-900">
                   예약 요청
                 </span>
               )}
             </div>
-            <h2 className="mt-0.5 text-lg font-semibold">{r.artName}</h2>
+            <h2 className="mt-0.5 text-lg font-semibold">
+              {r.artName ?? (r.isManual ? "수동 추가 예약" : "")}
+            </h2>
           </header>
 
           <dl className="space-y-2 text-sm">
@@ -670,44 +690,58 @@ function ReservationDetailModal({
               {formatDateHeader(r.reservationDate)} · {r.reservationTime} (
               {formatDurationKR(r.durationMinutes)})
             </Row>
-            <Row term="예약자">
-              {r.customerName}
-              {r.depositorName && r.depositorName !== r.customerName && (
-                <span className="ml-1 text-muted">
-                  (입금자 {r.depositorName})
-                </span>
-              )}
-            </Row>
-            <Row term="연락처">
-              <a
-                href={`tel:${r.customerPhone}`}
-                className="underline underline-offset-2"
-              >
-                {formatPhone(r.customerPhone)}
-              </a>
-            </Row>
-            <Row term="쌤">{r.staffName ?? "상관없음"}</Row>
-            <Row term="제거">{describeRemoval(r)}</Row>
-            {r.extensionCount > 0 && (
-              <Row term="연장">{r.extensionCount}개</Row>
+            {r.customerName && (
+              <Row term="예약자">
+                {r.customerName}
+                {r.depositorName && r.depositorName !== r.customerName && (
+                  <span className="ml-1 text-muted">
+                    (입금자 {r.depositorName})
+                  </span>
+                )}
+              </Row>
             )}
-            <Row term="총 금액">{formatPriceKRW(r.totalPrice)}</Row>
-            <Row term="예약금">
-              {formatPriceKRW(r.depositAmount)}
-              <span
-                className={
-                  "ml-1 text-xs " +
-                  (r.depositPaidAt ? "text-emerald-600" : "text-muted")
-                }
-              >
-                {r.depositPaidAt ? "입금 확인됨" : "미입금"}
-              </span>
-            </Row>
+            {r.customerPhone && (
+              <Row term="연락처">
+                <a
+                  href={`tel:${r.customerPhone}`}
+                  className="underline underline-offset-2"
+                >
+                  {formatPhone(r.customerPhone)}
+                </a>
+              </Row>
+            )}
+            {!r.isManual && (
+              <>
+                <Row term="쌤">{r.staffName ?? "상관없음"}</Row>
+                <Row term="제거">{describeRemoval(r)}</Row>
+                {r.extensionCount > 0 && (
+                  <Row term="연장">{r.extensionCount}개</Row>
+                )}
+              </>
+            )}
+            {r.totalPrice !== null && (
+              <Row term="총 금액">{formatPriceKRW(r.totalPrice)}</Row>
+            )}
+            {r.depositAmount !== null && (
+              <Row term="예약금">
+                {formatPriceKRW(r.depositAmount)}
+                <span
+                  className={
+                    "ml-1 text-xs " +
+                    (r.depositPaidAt ? "text-emerald-600" : "text-muted")
+                  }
+                >
+                  {r.depositPaidAt ? "입금 확인됨" : "미입금"}
+                </span>
+              </Row>
+            )}
           </dl>
 
           {r.notes && (
             <section>
-              <p className="text-xs font-medium text-muted">추가 요청사항</p>
+              <p className="text-xs font-medium text-muted">
+                {r.isManual ? "메모" : "추가 요청사항"}
+              </p>
               <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">
                 {r.notes}
               </p>

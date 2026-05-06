@@ -105,12 +105,15 @@ export interface Database {
         Row: {
           id: string;
           shop_id: string;
-          service_category_id: string;
-          art_id: string;
+          // Nullable on is_manual=true rows (blockouts entered by the shop
+          // owner without art/customer metadata). Non-manual rows guarantee
+          // these are populated via the manual_or_full CHECK constraint.
+          service_category_id: string | null;
+          art_id: string | null;
           staff_id: string | null;
           customer_user_id: string | null;
-          customer_name: string;
-          customer_phone: string;
+          customer_name: string | null;
+          customer_phone: string | null;
           depositor_name: string | null;
           reservation_date: string;
           reservation_time: string;
@@ -120,25 +123,26 @@ export interface Database {
           extension_count: number;
           reference_image_path: string | null;
           notes: string | null;
-          art_name: string;
-          total_price: number;
-          deposit_amount: number;
+          art_name: string | null;
+          total_price: number | null;
+          deposit_amount: number | null;
           deposit_paid_at: string | null;
           status: ReservationStatus;
           status_changed_at: string;
           status_changed_by: string | null;
           cancel_token: string;
+          is_manual: boolean;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           shop_id: string;
-          service_category_id: string;
-          art_id: string;
+          service_category_id?: string | null;
+          art_id?: string | null;
           staff_id?: string | null;
           customer_user_id?: string | null;
-          customer_name: string;
-          customer_phone: string;
+          customer_name?: string | null;
+          customer_phone?: string | null;
           depositor_name?: string | null;
           reservation_date: string;
           reservation_time: string;
@@ -148,9 +152,11 @@ export interface Database {
           extension_count?: number;
           reference_image_path?: string | null;
           notes?: string | null;
-          art_name: string;
-          total_price: number;
-          deposit_amount: number;
+          art_name?: string | null;
+          total_price?: number | null;
+          deposit_amount?: number | null;
+          status?: ReservationStatus;
+          is_manual?: boolean;
         };
       };
     };

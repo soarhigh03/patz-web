@@ -60,3 +60,67 @@ export async function rejectReservation(
 ): Promise<ReservationActionResult> {
   return setReservationStatus(reservationId, "rejected");
 }
+
+export interface CreateManualReservationInput {
+  /** YYYY-MM-DD (KST). */
+  reservationDate: string;
+  /** "HH:mm". */
+  reservationTime: string;
+  /** Minutes — picked from the end-time pill grid (end - start). */
+  durationMinutes: number;
+  /** Optional free-form note the owner can use to remember who/what. */
+  notes?: string | null;
+}
+
+/**
+ * Quick-add reservation for shop owners migrating in pre-existing bookings.
+ * Inserts directly as `confirmed` (the appointment already exists IRL — there
+ * is nothing to "수락"), with `is_manual = true` so the timetable can render
+ * a stripped-down card and skip the accept/reject controls.
+ *
+ * Schema-side (migration 0009): the customer/art/price snapshot columns are
+ * nullable when is_manual, gated by the `manual_or_full` CHECK so the
+ * customer flow's invariants stay strict.
+ */
+export async function createManualReservation(
+  input: CreateManualReservationInput,
+): Promise<ReservationActionResult> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "로그인이 필요해요." };
+
+  // Resolve the owner's shop. The dashboard already enforces 1 shop per owner
+  // (the page-level query uses .maybeSingle on owner_id), so this lookup is
+  // the same shape — no shop selector needed.
+  const { data: shopData } = await supabase
+    .from("shops")
+    .select("id")
+    .eq("owner_id", user.id)
+    .is("archived_at", null)
+    .maybeSingle();
+  const shop = shopData as { id: string } | null;
+  if (!shop) return { ok: false, error: "샵을 찾을 수 없어요." };
+
+  if (input.durationMinutes <= 0 || input.durationMinutes % 30 !== 0) {
+    return { ok: false, error: "시술 시간이 올바르지 않아요." };
+  }
+
+  const { error } = await supabase.from("reservations").insert({
+    shop_id: shop.id,
+    reservation_date: input.reservationDate,
+    reservation_time: input.reservationTime,
+    duration_minutes: input.durationMinutes,
+    notes: input.notes?.trim() || null,
+    is_manual: true,
+    // Pre-existing offline bookings are already confirmed in real life — skip
+    // the "요청 → 수락" loop that the customer flow needs.
+    status: "confirmed",
+  });
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/dashboard/reservations");
+  return { ok: true };
+}

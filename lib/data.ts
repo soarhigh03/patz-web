@@ -394,8 +394,8 @@ export async function listShopReservations(
       depositorName: r.depositor_name,
       artName: r.art_name,
       artImageUrl: img.url,
-      serviceCategoryCode: r.service_categories?.code ?? "",
-      serviceCategoryName: r.service_categories?.name ?? "",
+      serviceCategoryCode: r.service_categories?.code ?? null,
+      serviceCategoryName: r.service_categories?.name ?? null,
       staffName: r.staff?.name ?? null,
       totalPrice: r.total_price,
       depositAmount: r.deposit_amount,
@@ -406,6 +406,7 @@ export async function listShopReservations(
       notes: r.notes,
       // The query filters status IN (pending, confirmed); narrow here.
       status: r.status as "pending" | "confirmed",
+      isManual: r.is_manual,
     };
   });
 }

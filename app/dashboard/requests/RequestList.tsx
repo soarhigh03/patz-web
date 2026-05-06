@@ -74,7 +74,7 @@ function RequestCard({ reservation: r }: { reservation: ShopReservation }) {
           <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-neutral-100">
             <Image
               src={r.artImageUrl}
-              alt={r.artName}
+              alt={r.artName ?? ""}
               fill
               className="object-cover"
               sizes="56px"
@@ -83,12 +83,16 @@ function RequestCard({ reservation: r }: { reservation: ShopReservation }) {
           </div>
         )}
 
-        {/* Info */}
+        {/* Info — pending requests come from the customer flow, so the snapshot
+            fields are always populated. The `?? ""` / `?? 0` fallbacks are just
+            for the shared ShopReservation type, which is now nullable to model
+            is_manual blockouts (those are inserted as confirmed and never
+            reach this list). */}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="font-medium">{r.customerName}</span>
             <span className="text-xs text-muted">
-              {formatPhone(r.customerPhone)}
+              {formatPhone(r.customerPhone ?? "")}
             </span>
           </div>
           <p className="mt-0.5 text-sm text-muted">
@@ -110,7 +114,7 @@ function RequestCard({ reservation: r }: { reservation: ShopReservation }) {
           )}
           <div className="mt-1 flex items-center gap-2 text-xs">
             <span className="font-medium">
-              {r.totalPrice.toLocaleString()}원
+              {(r.totalPrice ?? 0).toLocaleString()}원
             </span>
             {r.depositPaidAt ? (
               <span className="rounded bg-green-100 px-1.5 py-0.5 text-green-700">
