@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ArtTile } from "@/components/ArtTile";
 import type { Art, StaffSeed } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { splitIntoColumns } from "@/lib/columns";
 
 interface Props {
   arts: Art[];
@@ -73,17 +74,43 @@ export function ArtFeedClient({ arts, staff, handle, service }: Props) {
             : "아직 등록된 아트가 없어요."}
         </p>
       ) : (
-        <div className="columns-2 gap-3">
-          {filteredArts.map((art) => (
-            <div key={art.id} className="mb-3 break-inside-avoid">
-              <ArtTile
-                art={art}
-                href={`/shops/${handle}/reserve/${service}/${art.id}`}
-              />
-            </div>
-          ))}
-        </div>
+        <TwoColumnGrid arts={filteredArts} handle={handle} service={service} />
       )}
     </main>
+  );
+}
+
+function TwoColumnGrid({
+  arts,
+  handle,
+  service,
+}: {
+  arts: Art[];
+  handle: string;
+  service: string;
+}) {
+  const [left, right] = useMemo(() => splitIntoColumns(arts), [arts]);
+
+  return (
+    <div className="flex gap-3">
+      <div className="flex flex-1 flex-col gap-3">
+        {left.map((art) => (
+          <ArtTile
+            key={art.id}
+            art={art}
+            href={`/shops/${handle}/reserve/${service}/${art.id}`}
+          />
+        ))}
+      </div>
+      <div className="flex flex-1 flex-col gap-3">
+        {right.map((art) => (
+          <ArtTile
+            key={art.id}
+            art={art}
+            href={`/shops/${handle}/reserve/${service}/${art.id}`}
+          />
+        ))}
+      </div>
+    </div>
   );
 }

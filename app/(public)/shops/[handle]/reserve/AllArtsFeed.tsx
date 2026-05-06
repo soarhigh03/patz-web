@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { ArtTile } from "@/components/ArtTile";
 import type { Art, ServiceCategory, StaffSeed } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { splitIntoColumns } from "@/lib/columns";
 
 interface Props {
   arts: Art[];
@@ -134,17 +135,35 @@ function CategorySection({
       </button>
 
       {open && (
-        <div className="columns-2 gap-3 pb-3">
-          {arts.map((art) => (
-            <div key={art.id} className="mb-3 break-inside-avoid">
-              <ArtTile
-                art={art}
-                href={`/shops/${handle}/reserve/${art.service}/${art.id}`}
-              />
-            </div>
-          ))}
-        </div>
+        <CategoryGrid arts={arts} handle={handle} />
       )}
     </section>
+  );
+}
+
+function CategoryGrid({ arts, handle }: { arts: Art[]; handle: string }) {
+  const [left, right] = useMemo(() => splitIntoColumns(arts), [arts]);
+
+  return (
+    <div className="flex gap-3 pb-3">
+      <div className="flex flex-1 flex-col gap-3">
+        {left.map((art) => (
+          <ArtTile
+            key={art.id}
+            art={art}
+            href={`/shops/${handle}/reserve/${art.service}/${art.id}`}
+          />
+        ))}
+      </div>
+      <div className="flex flex-1 flex-col gap-3">
+        {right.map((art) => (
+          <ArtTile
+            key={art.id}
+            art={art}
+            href={`/shops/${handle}/reserve/${art.service}/${art.id}`}
+          />
+        ))}
+      </div>
+    </div>
   );
 }
