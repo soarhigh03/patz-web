@@ -13,6 +13,8 @@ const BASE_DURATION_MINUTES: Record<string, number> = {
   "nail-art": 60,
   "one-color": 60,
   pedicure: 60,
+  "removal-only": 30,
+  extra: 60,
 };
 const DEFAULT_BASE_DURATION = 60;
 const REMOVAL_ADD_MIN = 30;
