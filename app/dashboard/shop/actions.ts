@@ -120,11 +120,68 @@ export async function saveShop(
     if (error) {
       return { ok: false, error: friendlyHandleError(error.message) };
     }
+
+    // Sync staff table for multi-staff shops
+    if (input.shopType === "multi") {
+      const cleanedStaff = input.staffNames
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+
+      // Load existing active staff
+      const { data: existingStaff } = await supabase
+        .from("staff")
+        .select("id, name, sort_order")
+        .eq("shop_id", exist.id)
+        .eq("active", true)
+        .order("sort_order");
+      const current = (existingStaff ?? []) as Array<{
+        id: string;
+        name: string;
+        sort_order: number;
+      }>;
+
+      const currentNames = current.map((s) => s.name);
+
+      // Deactivate staff no longer in the list
+      const toDeactivate = current.filter(
+        (s) => !cleanedStaff.includes(s.name),
+      );
+      for (const s of toDeactivate) {
+        await supabase
+          .from("staff")
+          .update({ active: false })
+          .eq("id", s.id);
+      }
+
+      // Insert new staff not already present
+      const toInsert = cleanedStaff.filter((n) => !currentNames.includes(n));
+      if (toInsert.length > 0) {
+        const rows = toInsert.map((name, i) => ({
+          shop_id: exist.id,
+          name,
+          sort_order: current.length + i,
+        }));
+        await supabase.from("staff").insert(rows);
+      }
+
+      // Update sort_order for existing staff that remain
+      for (let i = 0; i < cleanedStaff.length; i++) {
+        const match = current.find((s) => s.name === cleanedStaff[i]);
+        if (match && match.sort_order !== i) {
+          await supabase
+            .from("staff")
+            .update({ sort_order: i })
+            .eq("id", match.id);
+        }
+      }
+    }
+
     if (exist.handle !== input.handle) {
       revalidatePath(`/shops/${exist.handle}`);
     }
     revalidatePath(`/shops/${input.handle}`);
     revalidatePath("/dashboard");
+    revalidatePath("/dashboard/shop");
     return { ok: true, handle: input.handle, created: false };
   }
 
