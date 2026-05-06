@@ -161,7 +161,6 @@ export function ShopForm({
         setError(result.error);
         return;
       }
-      router.push("/dashboard");
       router.refresh();
     });
   }
