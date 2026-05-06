@@ -6,20 +6,17 @@ import { ArtForm } from "@/components/ArtForm";
 interface Props {
   shopId: string;
   categories: Array<{ code: string; name: string }>;
+  staffList: Array<{ id: string; name: string }>;
 }
 
-/**
- * Picks a fresh UUID once on mount so the image upload path
- * (`<shop>/arts/<id>-<ts>.<ext>`) lines up with the row that gets inserted
- * — ensuring the uploaded file is owned by the right art at first save.
- */
-export function NewArtClientWrapper({ shopId, categories }: Props) {
+export function NewArtClientWrapper({ shopId, categories, staffList }: Props) {
   const [id] = useState(() => crypto.randomUUID());
 
   return (
     <ArtForm
       shopId={shopId}
       categories={categories}
+      staffList={staffList}
       mode="create"
       initial={{
         id,
@@ -30,6 +27,7 @@ export function NewArtClientWrapper({ shopId, categories }: Props) {
         imagePath: null,
         imageUrl: undefined,
         isThisMonth: false,
+        staffIds: [],
       }}
     />
   );

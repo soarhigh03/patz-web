@@ -20,16 +20,28 @@ export default async function NewArtPage() {
   const shop = shopRow as { id: string } | null;
   if (!shop) redirect("/dashboard/shop");
 
-  const { data: catData } = await supabase
-    .from("service_categories")
-    .select("code, name, sort_order")
-    .eq("shop_id", shop.id)
-    .is("archived_at", null)
-    .order("sort_order");
-  const categories = (catData ?? []) as Array<{
+  const [catResult, staffResult] = await Promise.all([
+    supabase
+      .from("service_categories")
+      .select("code, name, sort_order")
+      .eq("shop_id", shop.id)
+      .is("archived_at", null)
+      .order("sort_order"),
+    supabase
+      .from("staff")
+      .select("id, name, sort_order")
+      .eq("shop_id", shop.id)
+      .eq("active", true)
+      .order("sort_order"),
+  ]);
+  const categories = (catResult.data ?? []) as Array<{
     code: string;
     name: string;
     sort_order: number;
+  }>;
+  const staffList = (staffResult.data ?? []) as Array<{
+    id: string;
+    name: string;
   }>;
 
   return (
@@ -50,6 +62,7 @@ export default async function NewArtPage() {
       <NewArtClientWrapper
         shopId={shop.id}
         categories={categories.map((c) => ({ code: c.code, name: c.name }))}
+        staffList={staffList.map((s) => ({ id: s.id, name: s.name }))}
       />
     </main>
   );

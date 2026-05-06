@@ -64,6 +64,8 @@ export interface Art {
    * feed/detail images at their true aspect ratio without CLS. */
   imageWidth?: number;
   imageHeight?: number;
+  /** Staff IDs that can perform this art. Empty = all staff (상관없음). */
+  staffIds?: string[];
 }
 
 export interface Staff {

@@ -47,17 +47,37 @@ export default async function EditArtPage({ params }: Params) {
   const art = artData as unknown as ArtRow | null;
   if (!art) notFound();
 
-  const { data: catData } = await supabase
-    .from("service_categories")
-    .select("code, name, sort_order")
-    .eq("shop_id", shop.id)
-    .is("archived_at", null)
-    .order("sort_order");
-  const categories = (catData ?? []) as Array<{
+  const [catResult, staffResult, artStaffResult] = await Promise.all([
+    supabase
+      .from("service_categories")
+      .select("code, name, sort_order")
+      .eq("shop_id", shop.id)
+      .is("archived_at", null)
+      .order("sort_order"),
+    supabase
+      .from("staff")
+      .select("id, name, sort_order")
+      .eq("shop_id", shop.id)
+      .eq("active", true)
+      .order("sort_order"),
+    supabase
+      .from("art_staff")
+      .select("staff_id")
+      .eq("art_id", art.id),
+  ]);
+
+  const categories = (catResult.data ?? []) as Array<{
     code: string;
     name: string;
     sort_order: number;
   }>;
+  const staffList = (staffResult.data ?? []) as Array<{
+    id: string;
+    name: string;
+  }>;
+  const assignedStaffIds = (artStaffResult.data ?? []).map(
+    (r: { staff_id: string }) => r.staff_id,
+  );
 
   const imageUrl = art.image_path
     ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/shop-assets/${art.image_path}`
@@ -79,6 +99,7 @@ export default async function EditArtPage({ params }: Params) {
       <ArtForm
         shopId={shop.id}
         categories={categories.map((c) => ({ code: c.code, name: c.name }))}
+        staffList={staffList.map((s) => ({ id: s.id, name: s.name }))}
         mode="edit"
         initial={{
           id: art.id,
@@ -89,6 +110,7 @@ export default async function EditArtPage({ params }: Params) {
           imagePath: art.image_path,
           imageUrl,
           isThisMonth: art.is_this_month,
+          staffIds: assignedStaffIds,
         }}
       />
     </main>

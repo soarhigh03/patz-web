@@ -16,6 +16,8 @@ export interface SaveArtInput {
   /** Storage path in shop-assets. Optional — arts can ship without an image. */
   imagePath: string | null;
   isThisMonth: boolean;
+  /** Staff IDs that can perform this art. Empty array = all staff (상관없음). */
+  staffIds: string[];
 }
 
 export type SaveArtResult =
@@ -116,6 +118,17 @@ export async function saveArt(input: SaveArtInput): Promise<SaveArtResult> {
       shop_id: shop.id,
     });
     if (error) return { ok: false, error: friendlyArtError(error.message) };
+  }
+
+  // Sync art_staff junction table (delete-then-insert)
+  await supabase.from("art_staff").delete().eq("art_id", input.id);
+  if (input.staffIds.length > 0) {
+    const rows = input.staffIds.map((staffId) => ({
+      art_id: input.id,
+      staff_id: staffId,
+    }));
+    const { error: staffErr } = await supabase.from("art_staff").insert(rows);
+    if (staffErr) return { ok: false, error: staffErr.message };
   }
 
   revalidatePath("/dashboard/arts");

@@ -234,7 +234,7 @@ export async function listArts(
 
   let query = supabase
     .from("arts")
-    .select("*, service_categories!inner(code)")
+    .select("*, service_categories!inner(code), art_staff(staff_id)")
     .eq("shop_id", shopRow.id)
     .is("archived_at", null)
     .order("sort_order");
@@ -244,10 +244,14 @@ export async function listArts(
   const { data, error } = await query;
   if (error || !data) return [];
 
-  const artRows = data as ArtWithCategory[];
-  return artRows.map((row) =>
-    rowToArt(row, handle, resolvedCategoryCode ?? row.service_categories.code),
-  );
+  type ArtWithStaff = ArtWithCategory & {
+    art_staff?: Array<{ staff_id: string }>;
+  };
+  const artRows = data as ArtWithStaff[];
+  return artRows.map((row) => ({
+    ...rowToArt(row, handle, resolvedCategoryCode ?? row.service_categories.code),
+    staffIds: (row.art_staff ?? []).map((as) => as.staff_id),
+  }));
 }
 
 export async function getArt(

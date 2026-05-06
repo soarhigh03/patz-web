@@ -16,6 +16,8 @@ export interface ArtFormInitial {
   imagePath: string | null;
   imageUrl?: string;
   isThisMonth: boolean;
+  /** Staff IDs that can perform this art. Empty = all staff. */
+  staffIds: string[];
 }
 
 interface ArtFormProps {
@@ -24,9 +26,11 @@ interface ArtFormProps {
   shopId: string;
   /** Categories the user can pick from. Comes from service_categories. */
   categories: Array<{ code: string; name: string }>;
+  /** All active staff in this shop. */
+  staffList: Array<{ id: string; name: string }>;
 }
 
-export function ArtForm({ initial, mode, shopId, categories }: ArtFormProps) {
+export function ArtForm({ initial, mode, shopId, categories, staffList }: ArtFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -51,13 +55,16 @@ export function ArtForm({ initial, mode, shopId, categories }: ArtFormProps) {
   );
   const [imagePath, setImagePath] = useState<string | null>(initial.imagePath);
   const [isThisMonth, setIsThisMonth] = useState(initial.isThisMonth);
+  const [assignStaff, setAssignStaff] = useState(initial.staffIds.length > 0);
+  const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>(initial.staffIds);
 
   // The image is uploaded to a path that embeds the row id, so it lands
   // on the right URL even before INSERT lands.
   const codeValid = /^[a-zA-Z0-9_-]+$/.test(code) && code !== "new";
   const priceValid = price.trim() !== "" && Number(price) >= 0;
+  const staffValid = !assignStaff || selectedStaffIds.length > 0;
   const isValid =
-    codeValid && priceValid && name.trim().length > 0 && categoryCode !== "";
+    codeValid && priceValid && name.trim().length > 0 && categoryCode !== "" && staffValid;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -73,6 +80,7 @@ export function ArtForm({ initial, mode, shopId, categories }: ArtFormProps) {
         price: Math.floor(Number(price)),
         imagePath,
         isThisMonth,
+        staffIds: assignStaff ? selectedStaffIds : [],
       });
       if (!result.ok) {
         setError(result.error);
@@ -163,6 +171,50 @@ export function ArtForm({ initial, mode, shopId, categories }: ArtFormProps) {
           />
           <span className="text-sm font-medium">이달의 아트</span>
         </label>
+
+        {staffList.length > 0 && (
+          <div>
+            <label className="flex cursor-pointer items-center gap-2.5">
+              <input
+                type="checkbox"
+                checked={assignStaff}
+                onChange={(e) => {
+                  setAssignStaff(e.target.checked);
+                  if (!e.target.checked) setSelectedStaffIds([]);
+                }}
+                className="h-5 w-5 rounded border-line accent-ink"
+              />
+              <span className="text-sm font-medium">쌤 지정하기</span>
+            </label>
+            {assignStaff && (
+              <div className="mt-3 flex flex-wrap gap-2 pl-7">
+                {staffList.map((s) => {
+                  const selected = selectedStaffIds.includes(s.id);
+                  return (
+                    <Chip
+                      key={s.id}
+                      selected={selected}
+                      onClick={() =>
+                        setSelectedStaffIds((prev) =>
+                          selected
+                            ? prev.filter((id) => id !== s.id)
+                            : [...prev, s.id],
+                        )
+                      }
+                    >
+                      {s.name}
+                    </Chip>
+                  );
+                })}
+                {selectedStaffIds.length === 0 && (
+                  <p className="text-xs text-muted">
+                    시술 가능한 쌤을 1명 이상 선택해주세요.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {error && (
           <p className="pt-2 text-center text-xs text-accent lg:text-left">
