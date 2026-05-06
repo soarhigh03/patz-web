@@ -64,7 +64,7 @@ export function StickyCTA({
           // Floating bar — bottom inset (`bottom-6`) lifts the button off
           // the viewport edge so it reads as floating, and the soft white
           // gradient keeps content legible as it scrolls behind.
-          "safe-bottom pointer-events-none fixed inset-x-0 bottom-6 mx-auto w-full max-w-mobile px-6",
+          "safe-bottom pointer-events-none fixed inset-x-0 bottom-6 z-20 mx-auto w-full max-w-mobile px-6",
           "before:pointer-events-none before:absolute before:inset-x-0 before:-top-8 before:bottom-0 before:bg-gradient-to-t before:from-white before:via-white/90 before:to-transparent before:content-['']",
         )}
       >
