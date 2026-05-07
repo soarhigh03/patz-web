@@ -639,6 +639,11 @@ function ReservationCard({
             {formatDurationKR(r.durationMinutes)}
           </span>
         </div>
+        {r.staffName && (
+          <div className="mt-0.5 truncate text-xs text-muted">
+            {r.staffName} 쌤
+          </div>
+        )}
         {(r.serviceCategoryName || r.artName) && (
           <div className="mt-0.5 truncate text-xs text-muted">
             {r.serviceCategoryName || r.artName}
@@ -725,6 +730,11 @@ function WeekReservationCard({
       <span className="truncate text-xs font-medium">
         {r.customerName ?? "수동 추가"}
       </span>
+      {r.staffName && (
+        <span className="truncate text-[10px] text-muted">
+          {r.staffName} 쌤
+        </span>
+      )}
       <span className="truncate text-[10px] text-muted">
         {r.serviceCategoryName || r.artName || (r.isManual ? "직접 입력" : "")}
       </span>
